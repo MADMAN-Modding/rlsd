@@ -1,3 +1,4 @@
-pub mod stats;
 pub mod constants;
-pub mod app;
+pub mod json_handler;
+pub mod stats;
+pub mod tui;
