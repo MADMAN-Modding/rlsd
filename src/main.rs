@@ -1,11 +1,17 @@
-use rlsd::{tui::new, constants::conversions::byte, stats};
+use std::env;
+
+use rlsd::{data_receiver::{self, Receiver}, data_sender};
 
 #[tokio::main]
 async fn main() {
-    println!("Hello, world!");
+    let args: Vec<String> = env::args().collect();
 
-    // println!("System CPU Usage: {:.3}", stats::get_user_cpu_usage());
-    println!("RAM Usage: {:.2} GiB", (stats::get_ram_usage() as f64) / (byte::GIBIBYTE));
-
-    new().ok();
+    match args.to_vec().get(1).unwrap().as_str() {
+        "-c" => data_sender::send(),
+        "-s" => {
+            let mut receiver = Receiver {stop: false};    
+            data_receiver::Receiver::start(&mut receiver).unwrap();
+        },
+        _ => println!("Not an option.")
+    }
 }

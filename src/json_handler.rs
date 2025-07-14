@@ -33,11 +33,15 @@ pub fn read_config_json(key: &str) -> String {
 pub fn read_json(key: &str, path: &str) -> String {
     let json_data: Value = open_json(path);
 
-    json_data[key].to_string().replace("\"", "")
+    read_json_from_buf(key, json_data)
 }
 
 pub fn read_json_as_value(path: &str) -> Value {
     open_json(path).clone()
+}
+
+pub fn read_json_from_buf(key: &str, json: Value) -> String {
+    json.get(key).unwrap().as_str().unwrap().to_string()
 }
 
 /// Opens the json file with the supplied path
@@ -248,7 +252,7 @@ pub fn write_nested_json_no_io(mut json : Value, keys: String, value: Value) -> 
 
 /// Writes to the config json
 /// 
-/// # Paramaters
+/// # Parameters
 /// `json_key: &str` - Key to write to
 /// `value : &str` - Value to write to the key 
 pub fn write_config<T: ToString>(json_key: &str, value: T) {

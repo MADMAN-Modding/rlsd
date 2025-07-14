@@ -38,8 +38,9 @@ pub fn get_config_json_path() -> String {
     format!("{}/config.json", get_config_dir())
 }
 
+/// A module for different conversions
 pub mod conversions {
-    /// This mod is to be used when dividing from bytes to another unit such as mebibytes or gibibytes
+    /// This module is to be used when dividing from bytes to another unit such as mebibytes or gibibytes
     pub mod byte {
         /// B -> KiB (1024^1) 
         pub const KIBIBYTE: f64 = 1024.0;
