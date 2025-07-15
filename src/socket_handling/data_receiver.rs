@@ -16,8 +16,9 @@ pub struct Receiver {
 }
 
 impl Receiver {
+    /// Starts the socket
     pub fn start(&mut self) -> std::io::Result<()> {
-        match TcpListener::bind("127.0.0.1:8080") {
+        match TcpListener::bind("0.0.0.0:51347") {
             Ok(listener) => self.handle_connection(listener),
             Err(e) => return Err(e),
         };
@@ -25,6 +26,9 @@ impl Receiver {
         Ok(())
     }
 
+    /// For every stream, match it;
+    /// * If it's Ok, process it
+    /// * If it's Err, print the error
     fn handle_connection(&mut self, listener: TcpListener) {
         for stream in listener.incoming() {
             // If the incoming traffic is valid then process it, otherwise print an error and continue to the next loop
@@ -48,6 +52,9 @@ impl Receiver {
         self.exit = true;
     }
 
+    /// Takes the stream and determines what command should be ran
+    /// 
+    /// Decodes the base64 data to json
     fn process_request(&mut self, mut stream: TcpStream) {
         let mut buf = [0; 1024];
 
@@ -58,18 +65,6 @@ impl Receiver {
         let command_ending = raw_string.find("!").unwrap();
         let (command, encoded_data) = raw_string.split_at(command_ending + 1);
 
-        // Match the command to the Commands enum
-        match command.to_command() {
-            Commands::INPUT => self.input(),
-            Commands::OUTPUT => self.output(encoded_data),
-            Commands::EXIT => self.exit(),
-            Commands::ERROR => self.error(),
-        }
-    }
-
-    fn input(&mut self) {}
-
-    fn output(&mut self, encoded_data: &str) {
         let decoded_bytes = general_purpose::STANDARD.decode(
             encoded_data
                 .to_string()
@@ -93,6 +88,21 @@ impl Receiver {
 
         println!("{}", json_string);
 
+        // Match the command to the Commands enum
+        match command.to_command() {
+            Commands::INPUT => self.input(),
+            Commands::OUTPUT => self.output(json_string),
+            Commands::EXIT => self.exit(),
+            Commands::ERROR => self.error(),
+        }
+    }
+
+    // Takes the json data as an input and adds it to the display data
+    fn input(&mut self) {
+
+    }
+
+    fn output(&mut self, json_string: String) {
         let json: Value = match serde_json::from_str(json_string.as_str()) {
             Ok(val) => val,
             Err(e) => {
@@ -105,6 +115,6 @@ impl Receiver {
     }
 
     fn error(&mut self) {
-        eprintln!("Option not recognized!")
+        eprintln!("Command not recognized!")
     }
 }

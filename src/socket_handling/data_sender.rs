@@ -5,7 +5,9 @@ use serde_json::json;
 
 /// Sends data to the socket
 pub fn send(input: &String) {
-    let mut connection = TcpStream::connect("127.0.0.1:8080").unwrap();
+    println!("{input}");
+
+    let mut connection = TcpStream::connect("127.0.0.1:51347").unwrap();
 
     let string_json = json!({"test": "key"}).to_string();
 
