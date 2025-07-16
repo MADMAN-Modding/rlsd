@@ -1,4 +1,4 @@
-use std::{thread::{self}, time::Duration};
+use std::{thread::{self}, time::{self, Duration, SystemTime}};
 
 use systemstat::{Platform, System};
 
@@ -25,7 +25,7 @@ pub fn get_cpu_usage() -> f32 {
 /// Returns the system RAM usage
 /// 
 /// Will return 0 if it fails 
-pub fn get_ram_usage() -> u64 {
+pub fn get_ram_usage() -> i64 {
     // Gets a new Platform Implementation
     let sys = System::new();
 
@@ -35,7 +35,11 @@ pub fn get_ram_usage() -> u64 {
     // If ram_usage is Ok then it takes the total RAM subtracted by the free RAM to find the used RAM
     // Otherwise it returns 0
     match ram_usage {
-        Ok(v) => v.total.0 - v.free.0,
+        Ok(v) => (v.total.0 - v.free.0) as i64,
         Err(_) => 0
     }
+}
+
+pub fn get_unix_timestamp() -> i64 {
+    time::SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_secs() as i64
 }

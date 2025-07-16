@@ -1,6 +1,5 @@
 --- Creates a table to store device information per minute
 CREATE TABLE IF NOT EXISTS devices (
-    id SERIAL PRIMARY KEY,
     device_id VARCHAR(255) NOT NULL,
     device_name VARCHAR(255) NOT NULL,
     ram_used BIGINT NOT NULL,
