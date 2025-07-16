@@ -2,10 +2,10 @@ use std::{thread::{self}, time::Duration};
 
 use systemstat::{Platform, System};
 
-/// Returns the user usage of the CPU
+/// Returns the usage of the CPU
 /// 
 /// Will return 0 if it fails
-pub fn get_user_cpu_usage() -> f32 {
+pub fn get_cpu_usage() -> f32 {
     // Gets a new Platform Implementation
     let sys = System::new();
 
@@ -14,10 +14,10 @@ pub fn get_user_cpu_usage() -> f32 {
     // Measure for one second
     thread::sleep(Duration::from_secs(1));
 
-    // Return the user CPU usage if Ok
+    // Return the CPU usage if Ok
     // Returns 0 if it is Err
     match cpu_avg.done() {
-        Ok(v) => v.user,
+        Ok(v) => 1.0 - v.idle,
         Err(_) => 0.0
     }
 }

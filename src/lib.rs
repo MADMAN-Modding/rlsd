@@ -4,5 +4,9 @@ pub mod socket_handling {
     pub mod data_receiver;
     pub mod data_sender;
 }
+pub mod stats_handling {
+    pub mod database;
+    pub mod device_info;
+    pub mod stats_getter;
+}
 pub mod json_handler;
-pub mod stats;
