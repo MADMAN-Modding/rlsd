@@ -33,14 +33,14 @@ pub fn read_config_json(key: &str) -> String {
 pub fn read_json(key: &str, path: &str) -> String {
     let json_data: Value = open_json(path);
 
-    read_json_from_buf(key, json_data)
+    read_json_from_buf(key, &json_data)
 }
 
 pub fn read_json_as_value(path: &str) -> Value {
     open_json(path).clone()
 }
 
-pub fn read_json_from_buf(key: &str, json: Value) -> String {
+pub fn read_json_from_buf(key: &str, json: &Value) -> String {
     json.get(key).unwrap().as_str().unwrap().to_string()
 }
 

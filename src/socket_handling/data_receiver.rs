@@ -5,21 +5,24 @@ use std::{
 
 use base64::{Engine, engine::general_purpose};
 use serde_json::Value;
+use sqlx::{Pool, Sqlite};
 
 use crate::{
-    json_handler::read_json_from_buf,
     socket_handling::command_type::{CommandTraits, Commands},
+    stats_handling::{database, device_info::ToDevice},
 };
 
+#[derive(Clone)]
 pub struct Receiver {
     pub exit: bool,
+    pub database: Pool<Sqlite>
 }
 
 impl Receiver {
     /// Starts the socket
-    pub fn start(&mut self) -> std::io::Result<()> {
+    pub async fn start(&mut self) -> std::io::Result<()> {
         match TcpListener::bind("0.0.0.0:51347") {
-            Ok(listener) => self.handle_connection(listener),
+            Ok(listener) => self.handle_connection(listener).await,
             Err(e) => return Err(e),
         };
 
@@ -29,12 +32,12 @@ impl Receiver {
     /// For every stream, match it;
     /// * If it's Ok, process it
     /// * If it's Err, print the error
-    fn handle_connection(&mut self, listener: TcpListener) {
+    async fn handle_connection(&mut self, listener: TcpListener) {
         for stream in listener.incoming() {
             // If the incoming traffic is valid then process it, otherwise print an error and continue to the next loop
             match stream {
                 Ok(stream) => {
-                    self.process_request(stream);
+                    self.process_request(stream).await;
                 }
                 Err(e) => {
                     eprintln!("Failed to handle the connection: {e}");
@@ -55,7 +58,7 @@ impl Receiver {
     /// Takes the stream and determines what command should be ran
     /// 
     /// Decodes the base64 data to json
-    fn process_request(&mut self, mut stream: TcpStream) {
+    async fn process_request(&mut self, mut stream: TcpStream) {
         let mut buf = [0; 1024];
 
         stream.read(&mut buf).unwrap();
@@ -88,21 +91,6 @@ impl Receiver {
 
         println!("{}", json_string);
 
-        // Match the command to the Commands enum
-        match command.to_command() {
-            Commands::INPUT => self.input(),
-            Commands::OUTPUT => self.output(json_string),
-            Commands::EXIT => self.exit(),
-            Commands::ERROR => self.error(),
-        }
-    }
-
-    // Takes the json data as an input and adds it to the display data
-    fn input(&mut self) {
-
-    }
-
-    fn output(&mut self, json_string: String) {
         let json: Value = match serde_json::from_str(json_string.as_str()) {
             Ok(val) => val,
             Err(e) => {
@@ -111,8 +99,21 @@ impl Receiver {
             }
         };
 
-        println!("{}", read_json_from_buf("test", json));
+        // Match the command to the Commands enum
+        match command.to_command() {
+            Commands::INPUT => self.input(json).await,
+            Commands::OUTPUT => self.output(json),
+            Commands::EXIT => self.exit(),
+            Commands::ERROR => self.error(),
+        }
     }
+
+    // Takes the json data as an input and adds it to the display data
+    async fn input(&mut self, json: Value) {
+        database::input_data(json.to_device(), &self.database).await.ok();
+    }
+
+    fn output(&mut self, _json: Value) {}
 
     fn error(&mut self) {
         eprintln!("Command not recognized!")

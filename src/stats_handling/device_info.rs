@@ -1,4 +1,4 @@
-use sqlx::{Pool, Sqlite};
+use serde_json::{json, Value};
 
 /// Holds all the information about a device each minute it is monitored
 #[derive(sqlx::FromRow, Clone)]
@@ -44,25 +44,52 @@ impl Device {
     pub fn new(device_id: String, device_name: String, ram_used: i64, ram_total: i64, cpu_usage: f32, processes: i32, network_in: i64, network_out: i64, time: i64) -> Device {
         Device { device_id: device_id, device_name: device_name, ram_used: ram_used, ram_total: ram_total, cpu_usage: cpu_usage, processes: processes, network_in: network_in, network_out: network_out, time: time }
     }
+
+    pub fn to_json(self) -> Value {
+        json!({
+            "deviceID": self.device_id,
+            "deviceName": self.device_name,
+            "ramUsed": self.ram_used,
+            "ramTotal": self.ram_total,
+            "cpuUsage": self.cpu_usage,
+            "processes": self.processes,
+            "networkIn": self.network_in,
+            "networkOut": self.network_out,
+            "time": self.time
+        })
+    }
 }
 
-pub async fn input_data(device: Device, database: Pool<Sqlite>) -> Result<(), sqlx::Error> {
-    sqlx::query(
-        r#"
-        INSERT INTO devices (device_id, device_name, ram_used, ram_total, cpu_usage, processes, network_in, network_out, time)
-        VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)
-        "#
-    )
-    .bind(device.device_id)
-    .bind(device.device_name)
-    .bind(device.ram_used)
-    .bind(device.ram_total)
-    .bind(device.cpu_usage)
-    .bind(device.processes)
-    .bind(device.network_in)
-    .bind(device.network_out)
-    .bind(device.time).execute(&database)
-    .await?;
+pub trait ToDevice {
+    /// Converts a JSON value to a `Device` instance.
+    /// 
+    /// # Arguments
+    /// * `value` - The JSON value to convert.
+    /// 
+    /// # Returns
+    /// A `Device` instance created from the JSON value.
+    fn to_device(self) -> Device;
+}
 
-    Ok(())
+impl ToDevice for serde_json::Value {
+    /// Converts a JSON value to a `Device` instance.
+    /// 
+    /// # Arguments
+    /// * `value` - The JSON value to convert.
+    /// 
+    /// # Returns
+    /// A `Device` instance created from the JSON value.
+    fn to_device(self) -> Device {
+        Device {
+            device_id: self["deviceID"].as_str().unwrap_or_default().to_string(),
+            device_name: self["deviceName"].as_str().unwrap_or_default().to_string(),
+            ram_used: self["ramUsed"].as_i64().unwrap_or(0),
+            ram_total: self["ramTotal"].as_i64().unwrap_or(0),
+            cpu_usage: self["cpuUsage"].as_f64().unwrap_or(0.0) as f32,
+            processes: self["processes"].as_i64().unwrap_or(0) as i32,
+            network_in: self["networkIn"].as_i64().unwrap_or(0),
+            network_out: self["networkOut"].as_i64().unwrap_or(0),
+            time: self["time"].as_i64().unwrap_or(0),
+        }
+    }
 }

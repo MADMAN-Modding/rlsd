@@ -15,3 +15,4 @@ serde_json = "1.0.140"
 systemstat = "0.2.5"
 sqlx = { version = "0.7", features = ["runtime-tokio-rustls", "sqlite"] }
 tokio = {version="1.46.1", features=["full"]}
+sysinfo = "0.36.0"

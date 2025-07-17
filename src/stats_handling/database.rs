@@ -2,6 +2,8 @@ use std::env;
 
 use sqlx::{sqlite::{SqliteConnectOptions, SqlitePoolOptions}, Pool, Sqlite};
 
+use crate::stats_handling::device_info::Device;
+
 /// Connects to the sqlite database and runs migrations
 /// 
 /// # Returns
@@ -29,4 +31,25 @@ pub async fn start_db() -> Pool<Sqlite> {
         };
 
     database
+}
+
+pub async fn input_data(device: Device, database: &Pool<Sqlite>) -> Result<(), sqlx::Error> {
+    sqlx::query(
+        r#"
+        INSERT INTO devices (device_id, device_name, ram_used, ram_total, cpu_usage, processes, network_in, network_out, time)
+        VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)
+        "#
+    )
+    .bind(device.device_id)
+    .bind(device.device_name)
+    .bind(device.ram_used)
+    .bind(device.ram_total)
+    .bind(device.cpu_usage)
+    .bind(device.processes)
+    .bind(device.network_in)
+    .bind(device.network_out)
+    .bind(device.time).execute(&*database)
+    .await?;
+
+    Ok(())
 }
