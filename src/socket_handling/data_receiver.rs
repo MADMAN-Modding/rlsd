@@ -4,13 +4,12 @@ use std::{
 };
 
 use base64::{Engine, engine::general_purpose};
+use color_eyre::owo_colors::OwoColorize;
 use serde_json::Value;
 use sqlx::{Pool, Sqlite};
 
 use crate::{
-    json_handler::ToDevice,
-    socket_handling::command_type::{CommandTraits, Commands},
-    stats_handling::{database, device_info::get_device_id},
+    constants::get_divider, json_handler::ToDevice, socket_handling::command_type::{CommandTraits, Commands}, stats_handling::{database, device_info::get_device_id}
 };
 
 #[derive(Clone)]
@@ -124,7 +123,11 @@ impl Receiver {
             }
         };
 
-        database::input_data(json.to_device(), &self.database)
+        let device = json.to_device();
+
+        println!("INPUT RECEIVED:\n{}\n{}\n{}", get_divider(), device.to_string().blue().bold(), get_divider());
+
+        database::input_data(device, &self.database)
             .await
             .ok();
     }

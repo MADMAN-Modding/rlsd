@@ -1,4 +1,4 @@
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use sqlx::{Pool, Sqlite};
 use uuid::Uuid;
 
@@ -24,7 +24,7 @@ pub struct Device {
     /// Amount of outgoing network traffic (in bytes)
     pub network_out: i64,
     /// Unix timestamp the data was taken
-    pub time: i64
+    pub time: i64,
 }
 
 impl Device {
@@ -45,28 +45,65 @@ impl Device {
     /// # Returns
     ///
     /// A new `Device` instance initialized with the specified values.
-    pub fn new(device_id: String, device_name: String, ram_used: i64, ram_total: i64, cpu_usage: f32, processes: i32, network_in: i64, network_out: i64, time: i64) -> Device {
-        Device { device_id: device_id, device_name: device_name, ram_used: ram_used, ram_total: ram_total, cpu_usage: cpu_usage, processes: processes, network_in: network_in, network_out: network_out, time: time }
+    pub fn new(
+        device_id: String,
+        device_name: String,
+        ram_used: i64,
+        ram_total: i64,
+        cpu_usage: f32,
+        processes: i32,
+        network_in: i64,
+        network_out: i64,
+        time: i64,
+    ) -> Device {
+        Device {
+            device_id: device_id,
+            device_name: device_name,
+            ram_used: ram_used,
+            ram_total: ram_total,
+            cpu_usage: cpu_usage,
+            processes: processes,
+            network_in: network_in,
+            network_out: network_out,
+            time: time,
+        }
     }
 
+    /// Converts the `Device` to a JSON `Value`
     pub fn to_json(self) -> Value {
         json!({
-            "deviceID": self.device_id,
+            "deviceID"  : self.device_id,
             "deviceName": self.device_name,
-            "ramUsed": self.ram_used,
-            "ramTotal": self.ram_total,
-            "cpuUsage": self.cpu_usage,
-            "processes": self.processes,
-            "networkIn": self.network_in,
+            "ramUsed"   : self.ram_used,
+            "ramTotal"  : self.ram_total,
+            "cpuUsage"  : self.cpu_usage,
+            "processes" : self.processes,
+            "networkIn" : self.network_in,
             "networkOut": self.network_out,
             "time": self.time
         })
+    }
+
+    /// Converts the `Device` to a `String`
+    pub fn to_string(&self) -> String {
+        format!(
+            "Device ID: {}\nDevice Name: {}\nRAM Used: {}\nRAM Total: {}\nCPU Usage: {}%\nProcesses: {}\nNetwork In: {} bytes\nNetwork Out: {} bytes\nTime: {}",
+            self.device_id,
+            self.device_name,
+            self.ram_used,
+            self.ram_total,
+            self.cpu_usage,
+            self.processes,
+            self.network_in,
+            self.network_out,
+            self.time
+        )
     }
 }
 
 impl ToDevice for serde_json::Value {
     /// Converts a JSON value to a `Device` instance.
-    /// 
+    ///
     /// # Returns
     /// A `Device` instance created from the JSON `Value`.
     fn to_device(&self) -> Device {

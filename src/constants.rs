@@ -46,6 +46,11 @@ pub fn get_server_config_path() -> String {
     format!("{}/server-config.json", get_config_dir())
 }
 
+/// Returns the amount of `-` used to separate lines
+pub fn get_divider<'a>() -> &'a str {
+    "-----------------------"
+}
+
 /// A module for different conversions
 pub mod conversions {
     /// This module is to be used when dividing from bytes to another unit such as mebibytes or gibibytes

@@ -5,10 +5,18 @@ use rlsd::{
     config::client::Client,
     constants::{self, get_client_config_path},
     input,
-    json_handler::write_json_from_value,
-    socket_handling::{self, data_receiver::Receiver},
-    stats_handling::database,
+    json_handler::{read_client_config_json, write_json_from_value},
+    socket_handling::{self, command_type::Commands, data_receiver::Receiver, data_sender},
+    stats_handling::{
+        database,
+        device_info::Device,
+        stats_getter::{
+            get_cpu_usage, get_network_in, get_network_out, get_processes, get_ram_total,
+            get_ram_usage, get_unix_timestamp,
+        },
+    },
 };
+use systemstat::{Platform, System};
 
 #[tokio::main]
 async fn main() {
@@ -18,21 +26,24 @@ async fn main() {
 
     let database = database::start_db().await;
 
-    // let sys = System::new();
-
-    // let device: Device = Device {
-    //     device_id: "TEST".to_string(),
-    //     device_name: "Socket Test Device".to_string(),
-    //     ram_used: get_ram_usage(&sys),
-    //     ram_total: get_ram_total(&sys),
-    //     cpu_usage: get_cpu_usage(&sys),
-    //     processes: get_processes(),
-    //     network_in: get_network_in(&sys),
-    //     network_out: get_network_out(&sys),
-    //     time: get_unix_timestamp(),
-    // };
-
     match args.to_vec().get(1).unwrap().as_str() {
+        "-m" | "--message" => {
+            let sys = System::new();
+
+            let data = Device::new(
+                read_client_config_json("deviceID"),
+                read_client_config_json("deviceName"),
+                get_ram_usage(&sys),
+                get_ram_total(&sys),
+                get_cpu_usage(&sys),
+                get_processes(),
+                get_network_in(&sys),
+                get_network_out(&sys),
+                get_unix_timestamp(),
+            );
+
+            data_sender::send(Commands::INPUT, data.to_json());
+        }
         "-s" | "--setup" => setup(),
         "--server" => {
             let mut receiver = Receiver::new(database);
@@ -47,7 +58,10 @@ async fn main() {
 pub fn setup() {
     let device_name = input!("Name for your device to be shown: ");
 
-    let server_addr = format!("{}:51347", input!("IP of the server machine (no port/CIDR)"));
+    let server_addr = format!(
+        "{}:51347",
+        input!("IP of the server machine (no port/CIDR)")
+    );
 
     let device_id = socket_handling::data_sender::setup(&server_addr);
 
@@ -55,5 +69,5 @@ pub fn setup() {
 
     write_json_from_value(&get_client_config_path(), client_conf.to_json());
 
-    println!("Device info: {}", client_conf.to_string().green().bold())
+    println!("Device info:\n{}", client_conf.to_string().green().bold())
 }

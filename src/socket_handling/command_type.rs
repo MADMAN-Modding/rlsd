@@ -6,7 +6,7 @@ pub enum Commands {
     OUTPUT,
     SETUP,
     EXIT,
-    ERROR
+    ERROR,
 }
 
 impl Commands {
@@ -16,7 +16,7 @@ impl Commands {
             Self::OUTPUT => "OUTPUT",
             Self::SETUP => "SETUP",
             Self::EXIT => "EXIT",
-            Self::ERROR => "ERROR"
+            Self::ERROR => "ERROR",
         }
     }
 }
@@ -32,7 +32,7 @@ impl CommandTraits for String {
             "OUTPUT" => Commands::OUTPUT,
             "SETUP" => Commands::SETUP,
             "EXIT" => Commands::EXIT,
-            _ => Commands::ERROR
+            _ => Commands::ERROR,
         }
     }
 }
@@ -44,7 +44,7 @@ impl CommandTraits for str {
             "OUTPUT" => Commands::OUTPUT,
             "SETUP" => Commands::SETUP,
             "EXIT" => Commands::EXIT,
-            _ => Commands::ERROR
+            _ => Commands::ERROR,
         }
     }
 }
