@@ -1,46 +1,59 @@
 use std::env;
 
+use crossterm::style::Stylize;
 use rlsd::{
-    socket_handling::{
-        data_receiver::{self, Receiver},
-        data_sender,
-    },
-    stats_handling::{
-        database,
-        device_info::Device,
-        stats_getter::{get_cpu_usage, get_network_in, get_network_out, get_processes, get_ram_total, get_ram_usage, get_unix_timestamp},
-    },
+    config::client::Client,
+    constants::{self, get_client_config_path},
+    input,
+    json_handler::write_json_from_value,
+    socket_handling::{self, data_receiver::Receiver},
+    stats_handling::database,
 };
-use systemstat::{Platform, System};
 
 #[tokio::main]
 async fn main() {
+    constants::setup();
+
     let args: Vec<String> = env::args().collect();
 
     let database = database::start_db().await;
 
-    let sys = System::new();
+    // let sys = System::new();
 
-    let device: Device = Device {
-        device_id: "TESTID".to_string(),
-        device_name: "Socket Test Device".to_string(),
-        ram_used: get_ram_usage(&sys),
-        ram_total: get_ram_total(&sys),
-        cpu_usage: get_cpu_usage(&sys),
-        processes: get_processes(),
-        network_in: get_network_in(&sys),
-        network_out: get_network_out(&sys),
-        time: get_unix_timestamp(),
-    };
-
-    let command = args.get(2).unwrap_or(&"ERROR".to_string()).to_string();
+    // let device: Device = Device {
+    //     device_id: "TEST".to_string(),
+    //     device_name: "Socket Test Device".to_string(),
+    //     ram_used: get_ram_usage(&sys),
+    //     ram_total: get_ram_total(&sys),
+    //     cpu_usage: get_cpu_usage(&sys),
+    //     processes: get_processes(),
+    //     network_in: get_network_in(&sys),
+    //     network_out: get_network_out(&sys),
+    //     time: get_unix_timestamp(),
+    // };
 
     match args.to_vec().get(1).unwrap().as_str() {
-        "-c" => data_sender::send(command, device.to_json()),
-        "-s" => {
-            let mut receiver = Receiver { exit: false, database: database };
-            data_receiver::Receiver::start(&mut receiver).await.unwrap();
+        "-s" | "--setup" => setup(),
+        "--server" => {
+            let mut receiver = Receiver::new(database);
+
+            receiver.start().await.ok();
         }
         _ => println!("Not an option."),
     }
+}
+
+/// This function is used to setup a new device to connect to a server
+pub fn setup() {
+    let device_name = input!("Name for your device to be shown: ");
+
+    let server_addr = format!("{}:51347", input!("IP of the server machine (no port/CIDR)"));
+
+    let device_id = socket_handling::data_sender::setup(&server_addr);
+
+    let client_conf = Client::new(device_id, device_name, server_addr);
+
+    write_json_from_value(&get_client_config_path(), client_conf.to_json());
+
+    println!("Device info: {}", client_conf.to_string().green().bold())
 }

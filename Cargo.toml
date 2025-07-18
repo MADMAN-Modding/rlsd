@@ -16,3 +16,4 @@ systemstat = "0.2.5"
 sqlx = { version = "0.7", features = ["runtime-tokio-rustls", "sqlite"] }
 tokio = {version="1.46.1", features=["full"]}
 sysinfo = "0.36.0"
+uuid = {version = "1.17.0", features=["v4"]}

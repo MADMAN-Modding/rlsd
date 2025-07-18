@@ -1,8 +1,10 @@
 /// Commands to be sent over the server
+#[derive(PartialEq)]
 pub enum Commands {
     /// Add data to the current stats
     INPUT,
     OUTPUT,
+    SETUP,
     EXIT,
     ERROR
 }
@@ -12,6 +14,7 @@ impl Commands {
         match self {
             Self::INPUT => "INPUT",
             Self::OUTPUT => "OUTPUT",
+            Self::SETUP => "SETUP",
             Self::EXIT => "EXIT",
             Self::ERROR => "ERROR"
         }
@@ -24,9 +27,10 @@ pub trait CommandTraits {
 
 impl CommandTraits for String {
     fn to_command(&self) -> Commands {
-        match self.as_str() {
+        match self.replace("!", "").as_str() {
             "INPUT" => Commands::INPUT,
             "OUTPUT" => Commands::OUTPUT,
+            "SETUP" => Commands::SETUP,
             "EXIT" => Commands::EXIT,
             _ => Commands::ERROR
         }
@@ -38,6 +42,7 @@ impl CommandTraits for str {
         match self.replace("!", "").as_str() {
             "INPUT" => Commands::INPUT,
             "OUTPUT" => Commands::OUTPUT,
+            "SETUP" => Commands::SETUP,
             "EXIT" => Commands::EXIT,
             _ => Commands::ERROR
         }

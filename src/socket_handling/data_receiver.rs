@@ -1,5 +1,5 @@
 use std::{
-    io::Read,
+    io::{Read, Write},
     net::{TcpListener, TcpStream},
 };
 
@@ -8,17 +8,22 @@ use serde_json::Value;
 use sqlx::{Pool, Sqlite};
 
 use crate::{
+    json_handler::ToDevice,
     socket_handling::command_type::{CommandTraits, Commands},
-    stats_handling::{database, device_info::ToDevice},
+    stats_handling::{database, device_info::get_device_id},
 };
 
 #[derive(Clone)]
 pub struct Receiver {
     pub exit: bool,
-    pub database: Pool<Sqlite>
+    pub database: Pool<Sqlite>,
 }
 
 impl Receiver {
+    pub fn new(database: Pool<Sqlite>) -> Receiver {
+        Receiver { exit: false, database: database }
+    }
+
     /// Starts the socket
     pub async fn start(&mut self) -> std::io::Result<()> {
         match TcpListener::bind("0.0.0.0:51347") {
@@ -56,18 +61,25 @@ impl Receiver {
     }
 
     /// Takes the stream and determines what command should be ran
-    /// 
+    ///
     /// Decodes the base64 data to json
     async fn process_request(&mut self, mut stream: TcpStream) {
+        // Makes the buffer to store the data
         let mut buf = [0; 1024];
 
+        // Read the data from teh stream
         stream.read(&mut buf).unwrap();
 
+        // Raw string data
         let raw_string = String::from_utf8_lossy(&buf).trim().to_string();
 
+        // Finds where the ! is in the msg
         let command_ending = raw_string.find("!").unwrap();
+        
+        // Gets the command the data that was encoded in base64
         let (command, encoded_data) = raw_string.split_at(command_ending + 1);
 
+        // Decode the data from base64, the filtering removes empty bytes in the array
         let decoded_bytes = general_purpose::STANDARD.decode(
             encoded_data
                 .to_string()
@@ -75,6 +87,8 @@ impl Receiver {
                 .filter(|&c| c != '\u{0000}')
                 .collect::<String>(),
         );
+        
+        // Convert the decode bytes to a string
         let json_string = match decoded_bytes {
             Ok(bytes) => match String::from_utf8(bytes) {
                 Ok(s) => s,
@@ -89,8 +103,19 @@ impl Receiver {
             }
         };
 
-        println!("{}", json_string);
+        // Match the command to the Commands enum
+        match command.to_command() {
+            Commands::INPUT => self.input(json_string).await,
+            Commands::OUTPUT => self.output(),
+            Commands::SETUP => self.setup(stream).await,
+            Commands::EXIT => self.exit(),
+            _ => self.error(),
+        }
+    }
 
+    // Takes the json data as an input and adds it to the display data
+    async fn input(&mut self, json_string: String) {
+        // Convert json_string to a Value 
         let json: Value = match serde_json::from_str(json_string.as_str()) {
             Ok(val) => val,
             Err(e) => {
@@ -99,23 +124,20 @@ impl Receiver {
             }
         };
 
-        // Match the command to the Commands enum
-        match command.to_command() {
-            Commands::INPUT => self.input(json).await,
-            Commands::OUTPUT => self.output(json),
-            Commands::EXIT => self.exit(),
-            Commands::ERROR => self.error(),
-        }
+        database::input_data(json.to_device(), &self.database)
+            .await
+            .ok();
     }
 
-    // Takes the json data as an input and adds it to the display data
-    async fn input(&mut self, json: Value) {
-        database::input_data(json.to_device(), &self.database).await.ok();
-    }
-
-    fn output(&mut self, _json: Value) {}
+    fn output(&mut self) {}
 
     fn error(&mut self) {
         eprintln!("Command not recognized!")
+    }
+
+    async fn setup(&mut self, mut stream: TcpStream) {
+        let id = get_device_id(&self.database).await;
+
+        stream.write_all(id.as_bytes()).unwrap();
     }
 }

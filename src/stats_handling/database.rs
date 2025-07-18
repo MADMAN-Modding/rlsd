@@ -33,6 +33,15 @@ pub async fn start_db() -> Pool<Sqlite> {
     database
 }
 
+/// Inserts data into the database
+/// 
+/// # Arguments
+/// * `device: Device` - Struct to insert
+/// * `database: &Pool<Sqlite>` - Database to use to execute
+/// 
+/// # Returns
+/// * `Ok()` - Insertion succeeds
+/// * `Err(sqlx::Error)` - Insertion fails 
 pub async fn input_data(device: Device, database: &Pool<Sqlite>) -> Result<(), sqlx::Error> {
     sqlx::query(
         r#"
@@ -52,4 +61,24 @@ pub async fn input_data(device: Device, database: &Pool<Sqlite>) -> Result<(), s
     .await?;
 
     Ok(())
+}
+
+pub async fn check_device_id_exists(id: &String, database: &Pool<Sqlite>) -> bool {
+    let query = r#"
+        SELECT * FROM devices
+        WHERE id = ?1
+        ORDER BY RANDOM()
+        LIMIT 1
+    "#;
+
+    match sqlx::query_scalar::<_, String> (
+        query
+    )
+    .bind(id)
+    .fetch_optional(&*database).await {
+        // Found an entry matching this id
+        Ok(_) => false,
+        // Didn't find an entry matching this id
+        Err(_) => true
+    }
 }

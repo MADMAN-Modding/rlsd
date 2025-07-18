@@ -1,4 +1,8 @@
 use serde_json::{json, Value};
+use sqlx::{Pool, Sqlite};
+use uuid::Uuid;
+
+use crate::{json_handler::ToDevice, stats_handling::database::check_device_id_exists};
 
 /// Holds all the information about a device each minute it is monitored
 #[derive(sqlx::FromRow, Clone)]
@@ -60,26 +64,12 @@ impl Device {
     }
 }
 
-pub trait ToDevice {
-    /// Converts a JSON value to a `Device` instance.
-    /// 
-    /// # Arguments
-    /// * `value` - The JSON value to convert.
-    /// 
-    /// # Returns
-    /// A `Device` instance created from the JSON value.
-    fn to_device(self) -> Device;
-}
-
 impl ToDevice for serde_json::Value {
     /// Converts a JSON value to a `Device` instance.
     /// 
-    /// # Arguments
-    /// * `value` - The JSON value to convert.
-    /// 
     /// # Returns
-    /// A `Device` instance created from the JSON value.
-    fn to_device(self) -> Device {
+    /// A `Device` instance created from the JSON `Value`.
+    fn to_device(&self) -> Device {
         Device {
             device_id: self["deviceID"].as_str().unwrap_or_default().to_string(),
             device_name: self["deviceName"].as_str().unwrap_or_default().to_string(),
@@ -90,6 +80,17 @@ impl ToDevice for serde_json::Value {
             network_in: self["networkIn"].as_i64().unwrap_or(0),
             network_out: self["networkOut"].as_i64().unwrap_or(0),
             time: self["time"].as_i64().unwrap_or(0),
+        }
+    }
+}
+
+/// Returns a uuid for a device
+pub async fn get_device_id(database: &Pool<Sqlite>) -> String {
+    loop {
+        let id = Uuid::new_v4().to_string();
+
+        if check_device_id_exists(&id, database).await {
+            return id;
         }
     }
 }

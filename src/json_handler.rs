@@ -7,7 +7,7 @@ use std::{
 
 use serde_json::{json, Value};
 
-use crate::constants;
+use crate::{config::client::Client, constants, stats_handling::device_info::Device};
 
 /// Reads the config json and returns the value of the requested key
 ///
@@ -17,8 +17,8 @@ use crate::constants;
 /// # Returns
 /// * `String` - The data at the desired key
 
-pub fn read_config_json(key: &str) -> String {
-    read_json(key, &constants::get_config_json_path())
+pub fn read_client_config_json(key: &str) -> String {
+    read_json(key, &constants::get_client_config_path())
 }
 
 /// Reads the json at the supplied path and returns the value of the requested key
@@ -54,7 +54,7 @@ pub fn read_json_from_buf(key: &str, json: &Value) -> String {
 ///
 /// # Examples
 /// ```ignore
-/// open_json("random_path/overlay.json");
+/// open_json("random_path/config.json");
 /// ```
 fn open_json(path: &str) -> Value {
     let json_data: Value;
@@ -166,6 +166,10 @@ pub fn write_json(path: &str, json_key: &str, mut value: String) {
     .expect("Error writing file");
 }
 
+/// Write to a file from a JSON value
+pub fn write_json_from_value(path: &str, json: Value) {
+    fs::write(path, serde_json::to_string_pretty(&json).expect("Error serializing to json")).expect("Failed to write to file.");
+}
 
 /// Recursively reads a JSON value and writes a new value to the specified key path.
 /// No IO means it won't write to file system
@@ -257,7 +261,7 @@ pub fn write_nested_json_no_io(mut json : Value, keys: String, value: Value) -> 
 /// `value : &str` - Value to write to the key 
 pub fn write_config<T: ToString>(json_key: &str, value: T) {
     write_json(
-        &constants::get_config_json_path(),
+        &constants::get_client_config_path(),
         json_key,
         value.to_string(),
     );
@@ -353,7 +357,23 @@ pub fn reset_config() {
 /// Default settings for the config
 fn get_default_json_data() -> Value {
     json!({
-        "mouseID": "0067",
-        "profile" : "Main"
+        "deviceID": "N/A",
+        "serverAddr": "127.0.0.1:51347",
+        "friendlyName": "No Config Present"
     })
+}
+
+pub trait ToDevice {
+    /// Converts a JSON value to a `Device` instance.
+    /// 
+    /// # Arguments
+    /// * `value` - The JSON value to convert.
+    /// 
+    /// # Returns
+    /// A `Device` instance created from the JSON value.
+    fn to_device(&self) -> Device;
+}
+
+pub trait ToClient {
+    fn to_client(&self) -> Client;
 }
