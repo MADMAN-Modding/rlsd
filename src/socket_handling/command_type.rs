@@ -12,11 +12,11 @@ pub enum Commands {
 impl Commands {
     pub fn to_string<'a>(self) -> &'a str {
         match self {
-            Self::INPUT => "INPUT",
-            Self::OUTPUT => "OUTPUT",
-            Self::SETUP => "SETUP",
-            Self::EXIT => "EXIT",
-            Self::ERROR => "ERROR",
+            Self::INPUT => "INPUT!",
+            Self::OUTPUT => "OUTPUT!",
+            Self::SETUP => "SETUP!",
+            Self::EXIT => "EXIT!",
+            Self::ERROR => "ERROR!",
         }
     }
 }

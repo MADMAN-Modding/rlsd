@@ -16,6 +16,7 @@ pub mod stats_handling {
     pub mod database;
     pub mod device_info;
     pub mod stats_getter;
+    pub mod stats_loop;
 }
 
 pub mod json_handler;

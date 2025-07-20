@@ -13,7 +13,7 @@ use rlsd::{
         stats_getter::{
             get_cpu_usage, get_network_in, get_network_out, get_processes, get_ram_total,
             get_ram_usage, get_unix_timestamp,
-        },
+        }, stats_loop,
     },
 };
 use systemstat::{Platform, System};
@@ -44,7 +44,8 @@ async fn main() {
 
             data_sender::send(Commands::INPUT, data.to_json());
         }
-        "-s" | "--setup" => setup(),
+        "-s" | "--setup"  => setup(),
+        "-c" | "--client" => stats_loop::start_stats_loop().await, 
         "--server" => {
             let mut receiver = Receiver::new(database);
 

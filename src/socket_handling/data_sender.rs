@@ -10,16 +10,19 @@ use crate::{json_handler::read_client_config_json, socket_handling::command_type
 
 /// Sends data to the socket
 pub fn send(command: Commands, data: Value) {
-    let addr = read_client_config_json("serverAddr");
+    let server_addr = read_client_config_json("serverAddr");
 
-    let mut connection = TcpStream::connect(addr).unwrap();
+    let mut connection = match connect(server_addr) {
+        Ok(c) => c,
+        Err(e) => {eprintln!("{e}"); return;}
+    };
 
     let string_json = data.to_string();
 
     // All of these are made to preserve temporary values
     let encoded_data = general_purpose::STANDARD.encode(string_json);
 
-    let formatted = format!("{}!{encoded_data}", command.to_string());
+    let formatted = format!("{}{encoded_data}", command.to_string());
 
     let buf = formatted.as_bytes();
 
@@ -29,16 +32,13 @@ pub fn send(command: Commands, data: Value) {
 
 pub fn setup(server_addr: &str) -> String {
     // Used to get the device id
-    let mut connection = match TcpStream::connect(format!("{}", server_addr)) {
+    let mut connection = match connect(server_addr) {
         Ok(c) => c,
-        Err(e) => {
-            eprintln!("{e}");
-            return "Error".to_string();
-        }
+        Err(e) => {eprintln!("{e}"); return "Error".to_string();} 
     };
 
     connection
-        .write_all(format!("{}!", Commands::SETUP.to_string()).as_bytes())
+        .write_all(Commands::SETUP.to_string().as_bytes())
         .unwrap();
 
     let mut buf = [0; 1024];
@@ -53,4 +53,14 @@ pub fn setup(server_addr: &str) -> String {
         .collect::<String>();
 
     device_id
+}
+
+pub fn connect(server_addr: impl AsRef<str>) -> Result<TcpStream, String> {    
+    match TcpStream::connect(format!("{}", server_addr.as_ref())) {
+        Ok(c) => Ok(c),
+        Err(e) => {
+            eprintln!("{e}");
+            return Err("Error".to_string());
+        }
+    }
 }

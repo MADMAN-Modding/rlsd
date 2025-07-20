@@ -9,7 +9,7 @@ use serde_json::Value;
 use sqlx::{Pool, Sqlite};
 
 use crate::{
-    constants::get_divider, json_handler::ToDevice, socket_handling::command_type::{CommandTraits, Commands}, stats_handling::{database, device_info::get_device_id}
+    constants::get_divider, json_handler::ToDevice, socket_handling::command_type::{CommandTraits, Commands}, stats_handling::{database, device_info::get_device_id, stats_getter}
 };
 
 #[derive(Clone)]
@@ -115,13 +115,16 @@ impl Receiver {
     // Takes the json data as an input and adds it to the display data
     async fn input(&mut self, json_string: String) {
         // Convert json_string to a Value 
-        let json: Value = match serde_json::from_str(json_string.as_str()) {
+        let mut json: Value = match serde_json::from_str(json_string.as_str()) {
             Ok(val) => val,
             Err(e) => {
                 eprintln!("Failed to parse JSON: {}", e);
                 return;
             }
         };
+
+        // Replaces the time with the server time
+        json["time"] = Value::Number(stats_getter::get_unix_timestamp().into());
 
         let device = json.to_device();
 
