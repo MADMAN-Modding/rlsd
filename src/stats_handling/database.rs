@@ -1,11 +1,14 @@
-use std::env;
+use std::{collections::HashSet, env};
 
-use sqlx::{sqlite::{SqliteConnectOptions, SqlitePoolOptions}, Pool, Sqlite};
+use sqlx::{
+    Pool, Row, Sqlite,
+    sqlite::{SqliteConnectOptions, SqlitePoolOptions},
+};
 
 use crate::stats_handling::device_info::Device;
 
 /// Connects to the sqlite database and runs migrations
-/// 
+///
 /// # Returns
 /// `Pool<Sqlite>` - Interact with the database
 pub async fn start_db() -> Pool<Sqlite> {
@@ -22,26 +25,24 @@ pub async fn start_db() -> Pool<Sqlite> {
         )
         .await
         .expect("Couldn't connect to database");
-    
-    match sqlx::migrate!("./migrations")
-        .run(&database)
-        .await {
-            Ok(_) => {},
-            Err(e) => eprintln!("Migration Error: {}", e)
-        };
+
+    match sqlx::migrate!("./migrations").run(&database).await {
+        Ok(_) => {}
+        Err(e) => eprintln!("Migration Error: {}", e),
+    };
 
     database
 }
 
 /// Inserts data into the database
-/// 
+///
 /// # Arguments
 /// * `device: Device` - Struct to insert
 /// * `database: &Pool<Sqlite>` - Database to use to execute
-/// 
+///
 /// # Returns
 /// * `Ok()` - Insertion succeeds
-/// * `Err(sqlx::Error)` - Insertion fails 
+/// * `Err(sqlx::Error)` - Insertion fails
 pub async fn input_data(device: Device, database: &Pool<Sqlite>) -> Result<(), sqlx::Error> {
     sqlx::query(
         r#"
@@ -71,14 +72,51 @@ pub async fn check_device_id_exists(id: &String, database: &Pool<Sqlite>) -> boo
         LIMIT 1
     "#;
 
-    match sqlx::query_scalar::<_, String> (
-        query
-    )
-    .bind(id)
-    .fetch_optional(&*database).await {
+    match sqlx::query_scalar::<_, String>(query)
+        .bind(id)
+        .fetch_optional(&*database)
+        .await
+    {
         // Found an entry matching this id
         Ok(_) => false,
         // Didn't find an entry matching this id
-        Err(_) => true
+        Err(_) => true,
     }
+}
+
+/// Get all the different device uids
+///
+/// # Arguments
+/// * `database: &Pool<Sqlite>` - Database to execute the query
+///
+/// # Returns
+/// `HashSet<String>` - Contains all the different device uids
+pub async fn get_all_device_uids(database: &Pool<Sqlite>) -> HashSet<String> {
+    let mut uids = HashSet::new();
+
+    let rows = sqlx::query("SELECT device_id FROM devices")
+        .fetch_all(database)
+        .await
+        .expect("Failed to fetch device IDs");
+
+    for row in rows {
+        let device_id = row.get::<String, _>("device_id");
+
+        uids.insert(device_id);
+    }
+
+    uids
+}
+
+pub async fn get_device_name_from_uid(
+    database: &Pool<Sqlite>,
+    device_id: impl AsRef<str>,
+) -> String {
+    let row = sqlx::query("SELECT device_name FROM devices WHERE device_id = ?1")
+        .bind(device_id.as_ref())
+        .fetch_one(&*database)
+        .await
+        .expect("Name not found");
+
+    row.get("device_name")
 }

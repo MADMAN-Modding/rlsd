@@ -4,12 +4,13 @@ use std::{
 };
 
 use base64::{Engine, engine::general_purpose};
-use color_eyre::owo_colors::OwoColorize;
 use serde_json::Value;
 use sqlx::{Pool, Sqlite};
 
 use crate::{
-    constants::get_divider, json_handler::ToDevice, socket_handling::command_type::{CommandTraits, Commands}, stats_handling::{database, device_info::get_device_id, stats_getter}
+    json_handler::ToDevice,
+    socket_handling::command_type::{CommandTraits, Commands},
+    stats_handling::{database, device_info::get_device_id, stats_getter},
 };
 
 #[derive(Clone)]
@@ -20,7 +21,10 @@ pub struct Receiver {
 
 impl Receiver {
     pub fn new(database: Pool<Sqlite>) -> Receiver {
-        Receiver { exit: false, database: database }
+        Receiver {
+            exit: false,
+            database: database,
+        }
     }
 
     /// Starts the socket
@@ -74,7 +78,7 @@ impl Receiver {
 
         // Finds where the ! is in the msg
         let command_ending = raw_string.find("!").unwrap();
-        
+
         // Gets the command the data that was encoded in base64
         let (command, encoded_data) = raw_string.split_at(command_ending + 1);
 
@@ -86,7 +90,7 @@ impl Receiver {
                 .filter(|&c| c != '\u{0000}')
                 .collect::<String>(),
         );
-        
+
         // Convert the decode bytes to a string
         let json_string = match decoded_bytes {
             Ok(bytes) => match String::from_utf8(bytes) {
@@ -114,7 +118,7 @@ impl Receiver {
 
     // Takes the json data as an input and adds it to the display data
     async fn input(&mut self, json_string: String) {
-        // Convert json_string to a Value 
+        // Convert json_string to a Value
         let mut json: Value = match serde_json::from_str(json_string.as_str()) {
             Ok(val) => val,
             Err(e) => {
@@ -128,11 +132,9 @@ impl Receiver {
 
         let device = json.to_device();
 
-        println!("INPUT RECEIVED:\n{}\n{}\n{}", get_divider(), device.to_string().blue().bold(), get_divider());
+        // println!("INPUT RECEIVED:\n{}\n{}\n{}", get_divider(), device.to_string().blue().bold(), get_divider());
 
-        database::input_data(device, &self.database)
-            .await
-            .ok();
+        database::input_data(device, &self.database).await.ok();
     }
 
     fn output(&mut self) {}

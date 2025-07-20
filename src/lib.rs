@@ -19,4 +19,5 @@ pub mod stats_handling {
     pub mod stats_loop;
 }
 
+pub mod tui;
 pub mod json_handler;

@@ -1,5 +1,4 @@
 use std::{thread, time::Duration};
-
 use systemstat::{Platform, System};
 
 use crate::{
@@ -17,7 +16,7 @@ use crate::{
 pub async fn start_stats_loop() {
     thread::spawn(|| {
         let device_id = read_client_config_json("deviceID");
-        
+
         let device_name = read_client_config_json("deviceName");
 
         loop {
@@ -38,5 +37,7 @@ pub async fn start_stats_loop() {
             data_sender::send(Commands::INPUT, device.to_json());
             thread::sleep(Duration::from_secs(60));
         }
-    }).join().unwrap();
+    })
+    .join()
+    .unwrap();
 }

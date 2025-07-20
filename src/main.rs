@@ -13,8 +13,10 @@ use rlsd::{
         stats_getter::{
             get_cpu_usage, get_network_in, get_network_out, get_processes, get_ram_total,
             get_ram_usage, get_unix_timestamp,
-        }, stats_loop,
+        },
+        stats_loop,
     },
+    tui,
 };
 use systemstat::{Platform, System};
 
@@ -27,29 +29,50 @@ async fn main() {
     let database = database::start_db().await;
 
     match args.to_vec().get(1).unwrap().as_str() {
+        // Message mode, just used for testing
         "-m" | "--message" => {
-            let sys = System::new();
+            let sys = &System::new();
 
             let data = Device::new(
                 read_client_config_json("deviceID"),
                 read_client_config_json("deviceName"),
-                get_ram_usage(&sys),
-                get_ram_total(&sys),
-                get_cpu_usage(&sys),
+                get_ram_usage(sys),
+                get_ram_total(sys),
+                get_cpu_usage(sys),
                 get_processes(),
-                get_network_in(&sys),
-                get_network_out(&sys),
+                get_network_in(sys),
+                get_network_out(sys),
                 get_unix_timestamp(),
             );
 
             data_sender::send(Commands::INPUT, data.to_json());
         }
-        "-s" | "--setup"  => setup(),
-        "-c" | "--client" => stats_loop::start_stats_loop().await, 
+        // Setup mode
+        "-s" | "--setup" => setup(),
+        // Client mode, 1 minute loops for sending data
+        "-c" | "--client" => stats_loop::start_stats_loop().await,
+        // Server mod
         "--server" => {
-            let mut receiver = Receiver::new(database);
+            let db_clone = database.clone();
 
-            receiver.start().await.ok();
+            let receiver_handle = tokio::spawn(async move {
+                let mut receiver = Receiver::new(db_clone);
+                receiver.start().await.unwrap();
+            });
+
+            // for device_id in database::get_all_device_uids(&database).await.iter() {
+            //     println!(
+            //         "{}:{}",
+            //         device_id,
+            //         database::get_device_name_from_uid(&database, device_id).await
+            //     )
+            // }
+
+            tui::start_tui(database).unwrap();
+
+            receiver_handle.await.unwrap();
+
+            loop {}
         }
         _ => println!("Not an option."),
     }
@@ -59,10 +82,11 @@ async fn main() {
 pub fn setup() {
     let device_name = input!("Name for your device to be shown: ");
 
-    let server_addr = format!(
-        "{}:51347",
-        input!("IP of the server machine (no port/CIDR)")
-    );
+    let mut server_addr = input!("IP of the server machine (No CIDR)");
+
+    if server_addr.find(":").is_none() {
+        server_addr = format!("{}:51347", server_addr);
+    }
 
     let device_id = socket_handling::data_sender::setup(&server_addr);
 
