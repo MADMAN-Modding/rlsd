@@ -19,10 +19,10 @@ use std::{
     time::{Duration, Instant},
 };
 
-use crate::stats_handling::{
+use crate::{constants::conversions, stats_handling::{
     database::{self, get_device_stats_after},
     device_info::Device,
-};
+}};
 
 #[derive(Clone, Copy)]
 enum TimeRange {
@@ -172,18 +172,18 @@ pub async fn start_tui(database: &Pool<Sqlite>) -> Result<(), Box<dyn std::error
                         .collect();
                     let ram_data: Vec<(f64, f64)> = filtered
                         .iter()
-                        .map(|d| (d.time as f64, d.ram_used as f64 / 1e9))
+                        .map(|d| ((d.time - time_min) as f64, d.ram_used as f64 / 1e9))
                         .collect(); // GB
-                    let network_in_data: Vec<(f64, f64)> = filtered
-                        .iter()
-                        .map(|d| (d.time as f64, d.network_in as f64))
-                        .collect();
-                    let network_out_data: Vec<(f64, f64)> = filtered
-                        .iter()
-                        .map(|d| (d.time as f64, d.network_out as f64))
-                        .collect();
+                    // let network_in_data: Vec<(f64, f64)> = filtered
+                    //     .iter()
+                    //     .map(|d| ((d.time - time_min) as f64, d.network_in as f64))
+                    //     .collect();
+                    // let network_out_data: Vec<(f64, f64)> = filtered
+                    //     .iter()
+                    //     .map(|d| ((d.time - time_min) as f64, d.network_out as f64))
+                    //     .collect();
 
-                    let ram_total = filtered.last().map_or(1.0, |d| d.ram_total as f64 / 1e9);
+                    let ram_total = filtered.last().map_or(1.0, |d| d.ram_total as f64 / conversions::byte::GIBIBYTE);
 
                     let graph_chunks = Layout::default()
                         .direction(Direction::Vertical)
@@ -248,52 +248,67 @@ pub async fn start_tui(database: &Pool<Sqlite>) -> Result<(), Box<dyn std::error
                     .x_axis(
                         Axis::default()
                             .title("Time")
+                            .bounds([0.0, duration as f64])
+                            .labels(vec![
+                                Span::raw("0s"),
+                                Span::raw(format!("{}s", duration / 2)),
+                                Span::raw(format!("{}s", duration)),
+                            ])
                             .style(Style::default().fg(Color::Gray)),
                     )
                     .y_axis(
                         Axis::default()
                             .bounds([0.0, ram_total.max(0.1)])
+                            .labels(vec![
+                                Span::raw("0 GiB"), Span::raw(format!("{:.2} GiB", ram_total / 2.0)), Span::raw(format!("{:.2} GiB", ram_total))
+                            ])
                             .style(Style::default().fg(Color::Gray)),
                     );
 
                     f.render_widget(ram_chart, graph_chunks[1]);
 
-                    // Network Chart
-                    let max_net = network_in_data
-                        .iter()
-                        .chain(&network_out_data)
-                        .map(|(_, v)| *v)
-                        .fold(0.0_f64, f64::max)
-                        .max(1.0);
-                    let net_chart = Chart::new(vec![
-                        Dataset::default()
-                            .name("Net In")
-                            .marker(symbols::Marker::Braille)
-                            .style(Style::default().fg(Color::Blue))
-                            .data(&network_in_data),
-                        Dataset::default()
-                            .name("Net Out")
-                            .marker(symbols::Marker::Braille)
-                            .style(Style::default().fg(Color::Red))
-                            .data(&network_out_data),
-                    ])
-                    .block(
-                        Block::default()
-                            .title("Network I/O (bytes)")
-                            .borders(Borders::ALL),
-                    )
-                    .x_axis(
-                        Axis::default()
-                            .title("Time")
-                            .style(Style::default().fg(Color::Gray)),
-                    )
-                    .y_axis(
-                        Axis::default()
-                            .bounds([0.0, max_net])
-                            .style(Style::default().fg(Color::Gray)),
-                    );
+                    // Network Chart (need to fix the way data is obtained before this is used)
+                    // let max_net = network_in_data
+                    //     .iter()
+                    //     .chain(&network_out_data)
+                    //     .map(|(_, v)| *v)
+                    //     .fold(0.0_f64, f64::max)
+                    //     .max(1.0);
+                    // let net_chart = Chart::new(vec![
+                    //     Dataset::default()
+                    //         .name("Net In")
+                    //         .marker(symbols::Marker::Braille)
+                    //         .style(Style::default().fg(Color::Blue))
+                    //         .data(&network_in_data),
+                    //     Dataset::default()
+                    //         .name("Net Out")
+                    //         .marker(symbols::Marker::Braille)
+                    //         .style(Style::default().fg(Color::Red))
+                    //         .data(&network_out_data),
+                    // ])
+                    // .block(
+                    //     Block::default()
+                    //         .title("Network I/O (bytes)")
+                    //         .borders(Borders::ALL),
+                    // )
+                    // .x_axis(
+                    //     Axis::default()
+                    //         .title("Time")
+                    //         .bounds([0.0, duration as f64])
+                    //         .labels(vec![
+                    //             Span::raw("0s"),
+                    //             Span::raw(format!("{}s", duration / 2)),
+                    //             Span::raw(format!("{}s", duration)),
+                    //         ])
+                    //         .style(Style::default().fg(Color::Gray)),
+                    // )
+                    // .y_axis(
+                    //     Axis::default()
+                    //         .bounds([0.0, max_net])
+                    //         .style(Style::default().fg(Color::Gray)),
+                    // );
 
-                    f.render_widget(net_chart, graph_chunks[2]);
+                    // f.render_widget(net_chart, graph_chunks[2]);
                 }
             }
         })?;
