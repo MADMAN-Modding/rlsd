@@ -155,7 +155,7 @@ pub async fn start_tui(database: &Pool<Sqlite>) -> Result<(), Box<dyn std::error
 
             let time_range = TimeRange::all()[app.time_range_index].as_str();
             let dropdown = Paragraph::new(Span::styled(
-                format!("[ {} ▼ ]", time_range),
+                format!("[ {} ▲ ▼ ]", time_range),
                 Style::default().fg(Color::Green),
             ));
             f.render_widget(dropdown, chunks[1]);
