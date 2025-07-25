@@ -120,3 +120,25 @@ pub async fn get_device_name_from_uid(
 
     row.get("device_name")
 }
+
+pub async fn get_device_stats_after(
+    database: &Pool<Sqlite>,
+    device_id: &str,
+    since_timestamp: i64,
+) -> Vec<Device> {
+    let rows = sqlx::query_as::<_, Device>(
+        r#"
+        SELECT *
+        FROM devices
+        WHERE device_id = ?1
+        ORDER BY time ASC
+        "#,
+    )
+    .bind(device_id)
+    .bind(since_timestamp)
+    .fetch_all(database)
+    .await
+    .expect("Failed to fetch device stats");
+
+    rows
+}

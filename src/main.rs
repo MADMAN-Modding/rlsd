@@ -60,15 +60,9 @@ async fn main() {
                 receiver.start().await.unwrap();
             });
 
-            // for device_id in database::get_all_device_uids(&database).await.iter() {
-            //     println!(
-            //         "{}:{}",
-            //         device_id,
-            //         database::get_device_name_from_uid(&database, device_id).await
-            //     )
-            // }
 
-            tui::start_tui(database).unwrap();
+
+            tui::start_tui(&database).await.unwrap();
 
             receiver_handle.await.unwrap();
 
