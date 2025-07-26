@@ -103,7 +103,7 @@ impl App {
         let chart = Chart::new(vec![
             Dataset::default()
                 .name(format!("{title} Used"))
-                .marker(symbols::Marker::Bar)
+                .marker(symbols::Marker::Dot)
                 .style(Style::default().fg(color))
                 .data(&data),
         ]).legend_position(Some(LegendPosition::TopLeft))
@@ -174,6 +174,7 @@ pub async fn start_tui(database: &Pool<Sqlite>) -> Result<(), Box<dyn std::error
         terminal.draw(|f| {
             let size = f.area();
 
+            // Different areas to make
             let chunks = Layout::default()
                 .direction(Direction::Vertical)
                 .constraints([

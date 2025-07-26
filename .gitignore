@@ -2,3 +2,4 @@
 Cargo.lock
 .vscode
 database.sqlite
+libs
