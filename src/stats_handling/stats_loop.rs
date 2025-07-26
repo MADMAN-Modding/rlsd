@@ -20,8 +20,6 @@ pub async fn start_stats_loop() {
         let device_name = read_client_config_json("deviceName");
 
         loop {
-            print!("Sending data...");
-
             let sys = &System::new();
 
             let device = Device::new(
@@ -37,7 +35,6 @@ pub async fn start_stats_loop() {
             );
 
             data_sender::send(Commands::INPUT, device.to_json());
-            println!("Sent");
             thread::sleep(Duration::from_secs(60));
         }
     })

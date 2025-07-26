@@ -4,13 +4,7 @@ use crossterm::{
     terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode},
 };
 use ratatui::{
-    Terminal,
-    backend::CrosstermBackend,
-    layout::{Constraint, Direction, Layout},
-    style::{Color, Style},
-    symbols,
-    text::Span,
-    widgets::{Axis, Block, Borders, Chart, Dataset, GraphType, Paragraph, Tabs},
+    backend::CrosstermBackend, layout::{Constraint, Direction, Layout}, style::{Color, Style}, symbols, text::Span, widgets::{Axis, Block, Borders, Chart, Dataset, LegendPosition, Paragraph, Tabs}, Terminal
 };
 use sqlx::{Pool, Sqlite};
 use std::{
@@ -19,10 +13,10 @@ use std::{
     time::{Duration, Instant},
 };
 
-use crate::{constants::conversions, stats_handling::{
+use crate::stats_handling::{
     database::{self, get_device_stats_after},
     device_info::Device,
-}};
+};
 
 #[derive(Clone, Copy)]
 enum TimeRange {
@@ -95,6 +89,53 @@ impl App {
         }
         self.last_updated = Instant::now();
     }
+
+    fn make_chart<'a>(
+        &self,
+        data: &'a [(f64, f64)],
+        unit: &'a str,
+        time: i64,
+        limit: f64,
+        title: &'a str,
+        color: Color,
+    ) -> Chart<'a> {
+        // Chart maker
+        let chart = Chart::new(vec![
+            Dataset::default()
+                .name(format!("{title} Used"))
+                .marker(symbols::Marker::Bar)
+                .style(Style::default().fg(color))
+                .data(&data),
+        ]).legend_position(Some(LegendPosition::TopLeft))
+        .block(
+            Block::default()
+                .title(format!("{title} ({unit})"))
+                .borders(Borders::ALL),
+        )
+        .x_axis(
+            Axis::default()
+                .title("Time")
+                .bounds([0.0, time as f64])
+                .labels(vec![
+                    Span::raw(format!("{}s", time)),
+                    Span::raw(format!("{}s", time / 2)),
+                    Span::raw(format!("{}s", 0)),
+                ])
+                .style(Style::default().fg(Color::Gray)),
+        )
+        .y_axis(
+            Axis::default()
+                .bounds([0.0, limit])
+                .labels(vec![
+                    Span::raw(format!("0{unit}")),
+                    Span::raw(format!("{:.2}{unit}", limit / 2.0)),
+                    Span::raw(format!("{:.2}{unit}", limit)),
+                ])
+                .style(Style::default().fg(Color::Gray)),
+        );
+
+        chart
+    }
 }
 
 pub async fn start_tui(database: &Pool<Sqlite>) -> Result<(), Box<dyn std::error::Error>> {
@@ -153,12 +194,15 @@ pub async fn start_tui(database: &Pool<Sqlite>) -> Result<(), Box<dyn std::error
                 .highlight_style(Style::default().fg(Color::Yellow));
             f.render_widget(tabs, chunks[0]);
 
+            // Gets the time range as a str
             let time_range = TimeRange::all()[app.time_range_index].as_str();
-            let dropdown = Paragraph::new(Span::styled(
+
+            // Allows the user to cycle through how much data should be shown
+            let time_range_selector = Paragraph::new(Span::styled(
                 format!("[ {} ▲ ▼ ]", time_range),
                 Style::default().fg(Color::Green),
             ));
-            f.render_widget(dropdown, chunks[1]);
+            f.render_widget(time_range_selector, chunks[1]);
 
             if let Some(device_id) = app.selected_device_id() {
                 if let Some(data) = app.metrics_cache.get(device_id) {
@@ -168,22 +212,14 @@ pub async fn start_tui(database: &Pool<Sqlite>) -> Result<(), Box<dyn std::error
 
                     let cpu_data: Vec<(f64, f64)> = filtered
                         .iter()
-                        .map(|d| ((d.time - time_min) as f64, d.cpu_usage as f64))
+                        .map(|d| ((d.time - time_min) as f64, (d.cpu_usage * 100.0) as f64))
                         .collect();
                     let ram_data: Vec<(f64, f64)> = filtered
                         .iter()
-                        .map(|d| ((d.time - time_min) as f64, d.ram_used as f64 / 1e9))
+                        .map(|d| ((d.time - time_min) as f64, d.ram_used as f64))
                         .collect(); // GB
-                    // let network_in_data: Vec<(f64, f64)> = filtered
-                    //     .iter()
-                    //     .map(|d| ((d.time - time_min) as f64, d.network_in as f64))
-                    //     .collect();
-                    // let network_out_data: Vec<(f64, f64)> = filtered
-                    //     .iter()
-                    //     .map(|d| ((d.time - time_min) as f64, d.network_out as f64))
-                    //     .collect();
 
-                    let ram_total = filtered.last().map_or(1.0, |d| d.ram_total as f64 / conversions::byte::GIBIBYTE);
+                    let ram_total = filtered.last().map_or(0.0, |d| d.ram_total as f64);
 
                     let graph_chunks = Layout::default()
                         .direction(Direction::Vertical)
@@ -197,118 +233,16 @@ pub async fn start_tui(database: &Pool<Sqlite>) -> Result<(), Box<dyn std::error
                     let duration = app.selected_time_range().duration_secs();
 
                     // CPU Chart
-                    let cpu_chart = Chart::new(vec![
-                        Dataset::default()
-                            .name("CPU Usage")
-                            .marker(symbols::Marker::Dot)
-                            .style(Style::default().fg(Color::Green))
-                            .data(&cpu_data),
-                    ])
-                    .block(
-                        Block::default()
-                            .title("CPU Usage (%)")
-                            .borders(Borders::ALL),
-                    )
-                    .x_axis(
-                        Axis::default()
-                            .title("Time (seconds ago)")
-                            .bounds([0.0, duration as f64])
-                            .labels(vec![
-                                Span::raw("0s"),
-                                Span::raw(format!("{}s", duration / 2)),
-                                Span::raw(format!("{}s", duration)),
-                            ])
-                            .style(Style::default().fg(Color::Gray)),
-                    )
-                    .y_axis(
-                        Axis::default()
-                            .title("CPU %")
-                            .bounds([0.0, 1.0])
-                            .labels(vec![Span::raw("0%"), Span::raw("50%"), Span::raw("100%")])
-                            .style(Style::default().fg(Color::Gray)),
-                    );
+                    let cpu_chart =
+                        app.make_chart(&cpu_data, "%", duration, 100.0, "CPU", Color::Green);
 
                     f.render_widget(cpu_chart, graph_chunks[0]);
 
                     // RAM Chart
-                    let ram_line = [(time_min as f64, ram_total), (now as f64, ram_total)];
-                    let ram_chart = Chart::new(vec![
-                        Dataset::default()
-                            .name("RAM Used")
-                            .marker(symbols::Marker::Dot)
-                            .style(Style::default().fg(Color::Cyan))
-                            .data(&ram_data),
-                        Dataset::default()
-                            .name("RAM Total")
-                            .graph_type(GraphType::Line)
-                            .style(Style::default().fg(Color::DarkGray))
-                            .data(&ram_line),
-                    ])
-                    .block(Block::default().title("RAM (GB)").borders(Borders::ALL))
-                    .x_axis(
-                        Axis::default()
-                            .title("Time")
-                            .bounds([0.0, duration as f64])
-                            .labels(vec![
-                                Span::raw("0s"),
-                                Span::raw(format!("{}s", duration / 2)),
-                                Span::raw(format!("{}s", duration)),
-                            ])
-                            .style(Style::default().fg(Color::Gray)),
-                    )
-                    .y_axis(
-                        Axis::default()
-                            .bounds([0.0, ram_total.max(0.1)])
-                            .labels(vec![
-                                Span::raw("0 GiB"), Span::raw(format!("{:.2} GiB", ram_total / 2.0)), Span::raw(format!("{:.2} GiB", ram_total))
-                            ])
-                            .style(Style::default().fg(Color::Gray)),
-                    );
+                    let ram_chart =
+                        app.make_chart(&ram_data, "B", duration, ram_total, "RAM", Color::Cyan);
 
                     f.render_widget(ram_chart, graph_chunks[1]);
-
-                    // Network Chart (need to fix the way data is obtained before this is used)
-                    // let max_net = network_in_data
-                    //     .iter()
-                    //     .chain(&network_out_data)
-                    //     .map(|(_, v)| *v)
-                    //     .fold(0.0_f64, f64::max)
-                    //     .max(1.0);
-                    // let net_chart = Chart::new(vec![
-                    //     Dataset::default()
-                    //         .name("Net In")
-                    //         .marker(symbols::Marker::Braille)
-                    //         .style(Style::default().fg(Color::Blue))
-                    //         .data(&network_in_data),
-                    //     Dataset::default()
-                    //         .name("Net Out")
-                    //         .marker(symbols::Marker::Braille)
-                    //         .style(Style::default().fg(Color::Red))
-                    //         .data(&network_out_data),
-                    // ])
-                    // .block(
-                    //     Block::default()
-                    //         .title("Network I/O (bytes)")
-                    //         .borders(Borders::ALL),
-                    // )
-                    // .x_axis(
-                    //     Axis::default()
-                    //         .title("Time")
-                    //         .bounds([0.0, duration as f64])
-                    //         .labels(vec![
-                    //             Span::raw("0s"),
-                    //             Span::raw(format!("{}s", duration / 2)),
-                    //             Span::raw(format!("{}s", duration)),
-                    //         ])
-                    //         .style(Style::default().fg(Color::Gray)),
-                    // )
-                    // .y_axis(
-                    //     Axis::default()
-                    //         .bounds([0.0, max_net])
-                    //         .style(Style::default().fg(Color::Gray)),
-                    // );
-
-                    // f.render_widget(net_chart, graph_chunks[2]);
                 }
             }
         })?;
