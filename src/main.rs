@@ -5,20 +5,14 @@ use rlsd::{
     config::client::Client,
     constants::{self, get_client_config_path},
     input,
-    json_handler::{read_client_config_json, write_json_from_value},
-    socket_handling::{self, command_type::Commands, data_receiver::Receiver, data_sender},
+    json_handler::{write_json_from_value},
+    socket_handling::{self, data_receiver::Receiver},
     stats_handling::{
         database,
-        device_info::Device,
-        stats_getter::{
-            get_cpu_usage, get_network_in, get_network_out, get_processes, get_ram_total,
-            get_ram_usage, get_unix_timestamp,
-        },
         stats_loop,
     },
     tui,
 };
-use systemstat::{Platform, System};
 
 #[tokio::main]
 async fn main() {
@@ -29,36 +23,19 @@ async fn main() {
     let database = database::start_db().await;
 
     match args.to_vec().get(1).unwrap().as_str() {
-        // Message mode, just used for testing
-        "-m" | "--message" => {
-            let sys = &System::new();
-
-            let data = Device::new(
-                read_client_config_json("deviceID"),
-                read_client_config_json("deviceName"),
-                get_ram_usage(sys),
-                get_ram_total(sys),
-                get_cpu_usage(sys),
-                get_processes(),
-                get_network_in(sys),
-                get_network_out(sys),
-                get_unix_timestamp(),
-            );
-
-            data_sender::send(Commands::INPUT, data.to_json());
-        }
         // Setup mode
-        "-s" | "--setup" => setup(),
+        "--setup" => setup(),
         // Client mode, 1 minute loops for sending data
         "-c" | "--client" => stats_loop::start_stats_loop().await,
+        // Remove mode, removes the supplied id from the local database
         "-r" | "--remove" => {
             match args.to_vec().get(2) {
                 Some(id) => database::remove_device(&database, id).await,
                 None => eprintln!("Please specify a device id")
             }
         }
-        // Server mod
-        "--server" => {
+        // Server mode, starts the socket on a separate thread and then launches the TUI
+        "-s" | "--server" => {
             let db_clone = database.clone();
 
             let receiver_handle = tokio::spawn(async move {

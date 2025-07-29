@@ -10,3 +10,92 @@
 </h1>
 
 <p>The purpose of this project is for devices to send statistics to a host machine that will display the information on a retro looking TUI. I started this project because I thought it'd be fun.</p>
+
+# Building
+
+<h3>Dependencies</h3>
+Rust is needed to compile this project, grab it <a href="https://www.rust-lang.org/tools/install" target="_blank">here</a>
+
+<h4>Arch</h4>
+
+    // Install the dependencies needed
+    sudo pacman -S --needed \
+        base-devel \
+        pkgconf \
+        openssl \
+        sqlite \
+        libudev \
+        cmake \
+        zlib
+
+<h4>Fedora</h4>
+
+    // Install the dependencies needed
+    sudo dnf install -y \
+        gcc \
+        pkgconf-pkg-config \
+        openssl-devel \
+        sqlite-devel \
+        libudev-devel \
+        cmake \
+        make \
+        zlib-devel \ 
+        git
+
+<h4>Debian/Ubuntu<h4>
+
+    // Install the dependencies needed
+    sudo apt update && sudo apt install -y \
+        build-essential \
+        pkg-config \
+        libssl-dev \
+        libsqlite3-dev \
+        libudev-dev \
+        cmake \
+        zlib1g-dev
+
+
+<h3>Clone the project<h3>
+
+    git clone https://github.com/MADMAN-Modding/rlsd.git
+
+<h3>Building</h3>
+
+<h5>Linux</h5>
+To build the default Linux configuration for the Rust project
+
+    cd rlsd
+    
+    cargo build --release
+
+<h5>Linux Musl</h5>
+If you run into glibc version issues due the following
+
+    cd rsld
+
+    rustup target add x86_64-unknown-linux-musl
+    
+    cargo build --release --target x86_64-unknown-linux-musl
+
+<h3>Running</h3>
+
+If you run into issues running the project, try using Linux Musl
+
+<h5>Linux</h5>
+
+    // Make the binary executable
+    chmod +x target/releases/rlsd
+
+    // Run the binary    
+    ./target/release/rlsd --help
+
+<h5>Linux Musl</h5>
+
+    // Change directory to the musl release
+    cd target/x86_64-unknown-linux-musl/release    
+
+    // Make the binary executable
+    chmod +x rlsd
+
+    // Run the binary
+    ./rlsd --help
