@@ -109,7 +109,7 @@ impl App {
         color: Color,
     ) -> Chart<'a> {
         // Chart maker
-        let chart = Chart::new(vec![Dataset::default()
+        let mut chart = Chart::new(vec![Dataset::default()
             .name(format!("{title} Used"))
             .marker(symbols::Marker::Dot)
             .style(Style::default().fg(color))
@@ -119,30 +119,42 @@ impl App {
             Block::default()
                 .title(format!("{title} ({unit})"))
                 .borders(Borders::ALL),
-        )
-        .x_axis(
-            Axis::default()
-                .title("Time")
-                .bounds([0.0, time as f64])
-                .labels(vec![
-                    Span::raw(format!("{}s", time)),
-                    Span::raw(format!("{}s", time / 2)),
-                    Span::raw(format!("{}s", 0)),
-                ])
-                .style(Style::default().fg(Color::Gray)),
-        )
-        .y_axis(
-            Axis::default()
-                .bounds([0.0, limit])
-                .labels(vec![
-                    Span::raw(format!("0{unit}")),
-                    Span::raw(format!("{:.2}{unit}", limit / 2.0)),
-                    Span::raw(format!("{:.2}{unit}", limit)),
-                ])
-                .style(Style::default().fg(Color::Gray)),
         );
 
+        chart = self.detail_chart(chart, unit, time, limit);
+
         chart
+    }
+
+    fn detail_chart<'a>(
+        &self,
+        chart: Chart<'a>,
+        unit: &'a str,
+        time: i64,
+        limit: f64,
+    ) -> Chart<'a> {
+        chart
+            .x_axis(
+                Axis::default()
+                    .title("Time")
+                    .bounds([0.0, time as f64])
+                    .labels(vec![
+                        Span::raw(format!("{}s", time)),
+                        Span::raw(format!("{}s", time / 2)),
+                        Span::raw(format!("{}s", 0)),
+                    ])
+                    .style(Style::default().fg(Color::Gray)),
+            )
+            .y_axis(
+                Axis::default()
+                    .bounds([0.0, limit])
+                    .labels(vec![
+                        Span::raw(format!("0{unit}")),
+                        Span::raw(format!("{:.2}{unit}", limit / 2.0)),
+                        Span::raw(format!("{:.2}{unit}", limit)),
+                    ])
+                    .style(Style::default().fg(Color::Gray)),
+            )
     }
 }
 
@@ -248,9 +260,15 @@ pub async fn start_tui(database: &Pool<Sqlite>) -> Result<(), Box<dyn std::error
                             )
                         })
                         .collect(); // GB
+                    let network_in_data: Vec<(f64, f64)> = filtered
+                        .iter()
+                        .map(|d| ((d.time - time_min) as f64, d.network_in as f64))
+                        .collect();
 
-                    let ram_total =
-                        filtered.last().map_or(0.0, |d| d.ram_total as f64) / byte::GIBIBYTE;
+                    let network_out_data: Vec<(f64, f64)> = filtered
+                        .iter()
+                        .map(|d| ((d.time - time_min) as f64, d.network_out as f64))
+                        .collect();
 
                     let graph_chunks = Layout::default()
                         .direction(Direction::Vertical)
@@ -270,10 +288,49 @@ pub async fn start_tui(database: &Pool<Sqlite>) -> Result<(), Box<dyn std::error
                     f.render_widget(cpu_chart, graph_chunks[0]);
 
                     // RAM Chart
+
+                    // Gets the large value from the vector
+                    let ram_total =
+                        filtered.last().map_or(0.0, |d| d.ram_total as f64) / byte::GIBIBYTE;
+
+                    // Makes the chart
                     let ram_chart =
                         app.make_chart(&ram_data, "GB", duration, ram_total, "RAM", Color::Cyan);
 
                     f.render_widget(ram_chart, graph_chunks[1]);
+
+                    // Network Chart
+                    let network_in_max = filtered.last().map_or(0.0, |d| d.network_in as f64);
+                    let network_out_max = filtered.last().map_or(0.0, |d| d.network_in as f64);
+
+                    let network_max = network_in_max.max(network_out_max);
+
+                    let mut network_chart = Chart::new(vec![
+                        Dataset::default()
+                            .name("Network In")
+                            .marker(symbols::Marker::Dot)
+                            .style(Style::default().fg(Color::Green))
+                            .data(&network_in_data),
+                        Dataset::default()
+                            .name("Network Out")
+                            .marker(symbols::Marker::Dot)
+                            .style(Style::default().fg(Color::Cyan))
+                            .data(&network_out_data),
+                    ])
+                    .legend_position(Some(LegendPosition::TopLeft))
+                    .hidden_legend_constraints((
+                        Constraint::Percentage(50),
+                        Constraint::Percentage(60),
+                    ))
+                    .block(
+                        Block::default()
+                            .title(format!("Network (B)"))
+                            .borders(Borders::ALL),
+                    );
+
+                    network_chart = app.detail_chart(network_chart, "B", duration, network_max);
+
+                    f.render_widget(network_chart, graph_chunks[2]);
                 }
             }
         })?;

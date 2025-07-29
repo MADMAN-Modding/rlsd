@@ -5,10 +5,10 @@ use rlsd::{
     config::client::Client,
     constants::{self, get_client_config_path},
     input,
-    json_handler::{write_json_from_value},
+    json_handler::write_json_from_value,
     socket_handling::{self, data_receiver::Receiver},
     stats_handling::{
-        database,
+        database::{self, get_all_device_uids, get_device_name_from_uid},
         stats_loop,
     },
     tui,
@@ -23,18 +23,28 @@ async fn main() {
     let database = database::start_db().await;
 
     match args.to_vec().get(1).unwrap().as_str() {
-        // Setup mode
+        // Help
+
+        // List, lists all the uids and their friendly names
+        "-l" | "--list" => {
+            let ids = get_all_device_uids(&database).await;
+
+            for id in ids {
+                println!("{}: {}", get_device_name_from_uid(&database, &id).await, id)
+            }
+        }
+        // Setup, sets the client config and gets the uid
         "--setup" => setup(),
-        // Client mode, 1 minute loops for sending data
+        // Client, 1 minute loops for sending data
         "-c" | "--client" => stats_loop::start_stats_loop().await,
-        // Remove mode, removes the supplied id from the local database
+        // Remove, removes the supplied id from the local database
         "-r" | "--remove" => {
             match args.to_vec().get(2) {
                 Some(id) => database::remove_device(&database, id).await,
                 None => eprintln!("Please specify a device id")
             }
         }
-        // Server mode, starts the socket on a separate thread and then launches the TUI
+        // Server, starts the socket on a separate thread and then launches the TUI
         "-s" | "--server" => {
             let db_clone = database.clone();
 

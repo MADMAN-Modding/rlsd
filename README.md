@@ -69,7 +69,7 @@ To build the default Linux configuration for the Rust project
     cargo build --release
 
 <h5>Linux Musl</h5>
-If you run into glibc version issues due the following
+If you run into glibc version issues do the following
 
     cd rsld
 
