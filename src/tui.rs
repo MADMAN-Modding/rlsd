@@ -348,7 +348,7 @@ pub async fn start_tui(database: &Pool<Sqlite>) -> Result<(), Box<dyn std::error
                     ))
                     .block(
                         Block::default()
-                            .title(format!("Network ({})", network_unit))
+                            .title("Network Usage")
                             .borders(Borders::ALL),
                     );
 
