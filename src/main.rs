@@ -51,6 +51,12 @@ async fn main() {
         "-s" | "--setup" => setup(),
         // Client mode, 1 minute loops for sending data
         "-c" | "--client" => stats_loop::start_stats_loop().await,
+        "-r" | "--remove" => {
+            match args.to_vec().get(2) {
+                Some(id) => database::remove_device(&database, id).await,
+                None => eprintln!("Please specify a device id")
+            }
+        }
         // Server mod
         "--server" => {
             let db_clone = database.clone();

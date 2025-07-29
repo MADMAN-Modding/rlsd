@@ -1,8 +1,8 @@
 use std::{collections::HashSet, env};
 
 use sqlx::{
-    Pool, Row, Sqlite,
     sqlite::{SqliteConnectOptions, SqlitePoolOptions},
+    Pool, Row, Sqlite,
 };
 
 use crate::stats_handling::device_info::Device;
@@ -141,4 +141,21 @@ pub async fn get_device_stats_after(
     .expect("Failed to fetch device stats");
 
     rows
+}
+
+/// Removes all rows with the supplied device_id
+/// 
+/// # Arguments
+/// * `database: &Pool<Sqlite>` - Database to execute the query on
+/// * `device_id: String` - Device id to search for
+pub async fn remove_device(database: &Pool<Sqlite>, device_id: impl AsRef<str>) {
+    sqlx::query(
+        r#"
+        DELETE FROM devices WHERE device_id = ?1;
+    "#,
+    )
+    .bind(device_id.as_ref())
+    .execute(&*database)
+    .await
+    .ok();
 }

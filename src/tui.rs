@@ -1,10 +1,16 @@
 use crossterm::{
     event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode},
     execute,
-    terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode},
+    terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
 use ratatui::{
-    backend::CrosstermBackend, layout::{Constraint, Direction, Layout}, style::{Color, Style}, symbols, text::Span, widgets::{Axis, Block, Borders, Chart, Dataset, LegendPosition, Paragraph, Tabs}, Terminal
+    backend::CrosstermBackend,
+    layout::{Constraint, Direction, Layout},
+    style::{Color, Style},
+    symbols,
+    text::Span,
+    widgets::{Axis, Block, Borders, Chart, Dataset, LegendPosition, Paragraph, Tabs},
+    Terminal,
 };
 use sqlx::{Pool, Sqlite};
 use std::{
@@ -13,9 +19,12 @@ use std::{
     time::{Duration, Instant},
 };
 
-use crate::stats_handling::{
-    database::{self, get_device_stats_after},
-    device_info::Device,
+use crate::{
+    constants::conversions::byte,
+    stats_handling::{
+        database::{self, get_device_stats_after},
+        device_info::Device,
+    },
 };
 
 #[derive(Clone, Copy)]
@@ -100,13 +109,12 @@ impl App {
         color: Color,
     ) -> Chart<'a> {
         // Chart maker
-        let chart = Chart::new(vec![
-            Dataset::default()
-                .name(format!("{title} Used"))
-                .marker(symbols::Marker::Dot)
-                .style(Style::default().fg(color))
-                .data(&data),
-        ]).legend_position(Some(LegendPosition::TopLeft))
+        let chart = Chart::new(vec![Dataset::default()
+            .name(format!("{title} Used"))
+            .marker(symbols::Marker::Dot)
+            .style(Style::default().fg(color))
+            .data(&data)])
+        .legend_position(Some(LegendPosition::TopLeft))
         .block(
             Block::default()
                 .title(format!("{title} ({unit})"))
@@ -155,6 +163,8 @@ pub async fn start_tui(database: &Pool<Sqlite>) -> Result<(), Box<dyn std::error
         device_ids.push(device_id.clone());
     }
 
+    device_bubble_sort(&mut device_names, &mut device_ids);
+
     let mut app = App {
         device_names,
         device_ids,
@@ -169,6 +179,20 @@ pub async fn start_tui(database: &Pool<Sqlite>) -> Result<(), Box<dyn std::error
     loop {
         if app.last_updated.elapsed().as_secs() > 10 {
             app.refresh_data(&database).await;
+
+            let mut device_names: Vec<String> = Vec::new();
+            let mut device_ids: Vec<String> = Vec::new();
+
+            for device_id in database::get_all_device_uids(&database).await.iter() {
+                let device_name = database::get_device_name_from_uid(&database, device_id).await;
+                device_names.push(device_name);
+                device_ids.push(device_id.clone());
+            }
+
+            device_bubble_sort(&mut device_names, &mut device_ids);
+
+            app.device_names = device_names;
+            app.device_ids = device_ids;
         }
 
         terminal.draw(|f| {
@@ -217,10 +241,16 @@ pub async fn start_tui(database: &Pool<Sqlite>) -> Result<(), Box<dyn std::error
                         .collect();
                     let ram_data: Vec<(f64, f64)> = filtered
                         .iter()
-                        .map(|d| ((d.time - time_min) as f64, d.ram_used as f64))
+                        .map(|d| {
+                            (
+                                (d.time - time_min) as f64,
+                                (d.ram_used as f64) / byte::GIBIBYTE,
+                            )
+                        })
                         .collect(); // GB
 
-                    let ram_total = filtered.last().map_or(0.0, |d| d.ram_total as f64);
+                    let ram_total =
+                        filtered.last().map_or(0.0, |d| d.ram_total as f64) / byte::GIBIBYTE;
 
                     let graph_chunks = Layout::default()
                         .direction(Direction::Vertical)
@@ -241,7 +271,7 @@ pub async fn start_tui(database: &Pool<Sqlite>) -> Result<(), Box<dyn std::error
 
                     // RAM Chart
                     let ram_chart =
-                        app.make_chart(&ram_data, "B", duration, ram_total, "RAM", Color::Cyan);
+                        app.make_chart(&ram_data, "GB", duration, ram_total, "RAM", Color::Cyan);
 
                     f.render_widget(ram_chart, graph_chunks[1]);
                 }
@@ -263,6 +293,22 @@ pub async fn start_tui(database: &Pool<Sqlite>) -> Result<(), Box<dyn std::error
                             app.selected_device -= 1;
                         }
                         app.refresh_data(&database).await;
+                    }
+                    KeyCode::Left => {
+                        if app.selected_device == 0 {
+                            app.selected_device = app.device_names.len() - 1;
+                        } else {
+                            app.selected_device -= 1;
+                        }
+                        app.refresh_data(&database).await
+                    }
+                    KeyCode::Right => {
+                        if app.selected_device == app.device_names.len() - 1 {
+                            app.selected_device = 0;
+                        } else {
+                            app.selected_device += 1;
+                        }
+                        app.refresh_data(&database).await
                     }
                     KeyCode::Up => {
                         app.time_range_index = (app.time_range_index + 1) % TimeRange::all().len();
@@ -290,4 +336,16 @@ pub async fn start_tui(database: &Pool<Sqlite>) -> Result<(), Box<dyn std::error
     )?;
     terminal.show_cursor()?;
     Ok(())
+}
+
+fn device_bubble_sort(device_names: &mut Vec<String>, device_ids: &mut Vec<String>) {
+    let n = device_names.len();
+    for i in 0..n {
+        for j in 0..n - 1 - i {
+            if device_names[j] > device_names[j + 1] {
+                device_names.swap(j, j + 1);
+                device_ids.swap(j, j + 1);
+            }
+        }
+    }
 }
