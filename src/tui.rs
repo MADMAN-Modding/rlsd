@@ -114,7 +114,7 @@ impl App {
         .legend_position(Some(LegendPosition::TopLeft))
         .block(
             Block::default()
-                .title(format!("{title} ({unit})"))
+                .title(format!("{title} Usage"))
                 .borders(Borders::ALL),
         );
 
