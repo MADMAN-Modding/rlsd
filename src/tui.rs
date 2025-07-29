@@ -14,6 +14,7 @@ use ratatui::{
 };
 use sqlx::{Pool, Sqlite};
 use std::{
+    cmp::Ordering,
     collections::HashMap,
     io,
     time::{Duration, Instant},
@@ -289,9 +290,13 @@ pub async fn start_tui(database: &Pool<Sqlite>) -> Result<(), Box<dyn std::error
 
                     // RAM Chart
 
-                    // Gets the large value from the vector
-                    let ram_total =
-                        filtered.last().map_or(0.0, |d| d.ram_total as f64) / byte::GIBIBYTE;
+                    // Gets the largest value from the vector
+                    let ram_total = filtered
+                        .iter()
+                        .map(|d| d.ram_total as f64)
+                        .max_by(|a, b| a.partial_cmp(b).unwrap_or(Ordering::Equal))
+                        .unwrap_or(0.0)
+                        / byte::GIBIBYTE;
 
                     // Makes the chart
                     let ram_chart =
@@ -300,8 +305,16 @@ pub async fn start_tui(database: &Pool<Sqlite>) -> Result<(), Box<dyn std::error
                     f.render_widget(ram_chart, graph_chunks[1]);
 
                     // Network Chart
-                    let network_in_max = filtered.last().map_or(0.0, |d| d.network_in as f64);
-                    let network_out_max = filtered.last().map_or(0.0, |d| d.network_in as f64);
+                    let network_in_max = filtered
+                        .iter()
+                        .map(|d| d.network_in as f64)
+                        .max_by(|a, b| a.partial_cmp(b).unwrap_or(Ordering::Equal)).unwrap_or(0.0);
+
+                    let network_out_max = filtered
+                        .iter()
+                        .map(|d| d.network_out as f64)
+                        .max_by(|a, b| a.partial_cmp(b).unwrap_or(Ordering::Equal)).unwrap_or(0.0);
+
 
                     let network_max = network_in_max.max(network_out_max);
 
