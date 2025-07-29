@@ -20,13 +20,9 @@ use std::{
     time::{Duration, Instant},
 };
 
-use crate::{
-    constants::conversions::byte,
-    stats_handling::{
-        database::{self, get_device_stats_after},
-        device_info::Device,
-    },
-};
+use crate::stats_handling::{
+        conversions::{byte_to_unit, format_bytes, Unit}, database::{self, get_device_stats_after}, device_info::Device
+    };
 
 #[derive(Clone, Copy)]
 enum TimeRange {
@@ -103,7 +99,7 @@ impl App {
     fn make_chart<'a>(
         &self,
         data: &'a [(f64, f64)],
-        unit: &'a str,
+        unit: Unit,
         time: i64,
         limit: f64,
         title: &'a str,
@@ -130,7 +126,7 @@ impl App {
     fn detail_chart<'a>(
         &self,
         chart: Chart<'a>,
-        unit: &'a str,
+        unit: Unit,
         time: i64,
         limit: f64,
     ) -> Chart<'a> {
@@ -248,27 +244,40 @@ pub async fn start_tui(database: &Pool<Sqlite>) -> Result<(), Box<dyn std::error
                     let time_min = now - app.selected_time_range().duration_secs();
                     let filtered: Vec<_> = data.iter().filter(|d| d.time >= time_min).collect();
 
+                    // Take the data and make it usable on the charts
+                    // CPU usage
                     let cpu_data: Vec<(f64, f64)> = filtered
                         .iter()
                         .map(|d| ((d.time - time_min) as f64, (d.cpu_usage * 100.0) as f64))
                         .collect();
+                    
+                    // Ram Usage
+                    let mut ram_unit = Unit::BYTE; 
+
                     let ram_data: Vec<(f64, f64)> = filtered
                         .iter()
                         .map(|d| {
                             (
                                 (d.time - time_min) as f64,
-                                (d.ram_used as f64) / byte::GIBIBYTE,
+                                format_bytes(d.ram_used as f64, &mut ram_unit),
                             )
                         })
-                        .collect(); // GB
+                        .collect();
+
+                    // Network In
+                    let mut network_in_unit = Unit::BYTE;
+
                     let network_in_data: Vec<(f64, f64)> = filtered
                         .iter()
-                        .map(|d| ((d.time - time_min) as f64, d.network_in as f64))
+                        .map(|d| ((d.time - time_min) as f64, format_bytes(d.network_in as f64, &mut network_in_unit)))
                         .collect();
+
+                    // Network Out
+                    let mut network_out_unit = Unit::BYTE;
 
                     let network_out_data: Vec<(f64, f64)> = filtered
                         .iter()
-                        .map(|d| ((d.time - time_min) as f64, d.network_out as f64))
+                        .map(|d| ((d.time - time_min) as f64, format_bytes(d.network_out as f64, &mut network_out_unit)))
                         .collect();
 
                     let graph_chunks = Layout::default()
@@ -284,7 +293,7 @@ pub async fn start_tui(database: &Pool<Sqlite>) -> Result<(), Box<dyn std::error
 
                     // CPU Chart
                     let cpu_chart =
-                        app.make_chart(&cpu_data, "%", duration, 100.0, "CPU", Color::Green);
+                        app.make_chart(&cpu_data, Unit::Percentage, duration, 100.0, "CPU", Color::Green);
 
                     f.render_widget(cpu_chart, graph_chunks[0]);
 
@@ -296,11 +305,11 @@ pub async fn start_tui(database: &Pool<Sqlite>) -> Result<(), Box<dyn std::error
                         .map(|d| d.ram_total as f64)
                         .max_by(|a, b| a.partial_cmp(b).unwrap_or(Ordering::Equal))
                         .unwrap_or(0.0)
-                        / byte::GIBIBYTE;
+                        / byte_to_unit::GIBIBYTE as f64;
 
-                    // Makes the chart
+                    // Makes RAM the chart
                     let ram_chart =
-                        app.make_chart(&ram_data, "GB", duration, ram_total, "RAM", Color::Cyan);
+                        app.make_chart(&ram_data, ram_unit, duration, ram_total, "RAM", Color::Cyan);
 
                     f.render_widget(ram_chart, graph_chunks[1]);
 
@@ -316,7 +325,11 @@ pub async fn start_tui(database: &Pool<Sqlite>) -> Result<(), Box<dyn std::error
                         .max_by(|a, b| a.partial_cmp(b).unwrap_or(Ordering::Equal)).unwrap_or(0.0);
 
 
-                    let network_max = network_in_max.max(network_out_max);
+                    let (network_max, network_unit): (f64, Unit) = if network_in_max > network_out_max {
+                        (network_in_max, network_in_unit)
+                    } else {
+                        (network_out_max, network_out_unit)
+                    };
 
                     let mut network_chart = Chart::new(vec![
                         Dataset::default()
@@ -337,11 +350,11 @@ pub async fn start_tui(database: &Pool<Sqlite>) -> Result<(), Box<dyn std::error
                     ))
                     .block(
                         Block::default()
-                            .title(format!("Network (B)"))
+                            .title(format!("Network ({})", network_unit))
                             .borders(Borders::ALL),
                     );
 
-                    network_chart = app.detail_chart(network_chart, "B", duration, network_max);
+                    network_chart = app.detail_chart(network_chart, network_unit, duration, network_max);
 
                     f.render_widget(network_chart, graph_chunks[2]);
                 }

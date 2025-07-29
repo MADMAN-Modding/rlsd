@@ -45,23 +45,3 @@ pub fn get_client_config_path() -> String {
 pub fn get_server_config_path() -> String {
     format!("{}/server-config.json", get_config_dir())
 }
-
-/// Returns the amount of `-` used to separate lines
-pub fn get_divider<'a>() -> &'a str {
-    "-----------------------"
-}
-
-/// A module for different conversions
-pub mod conversions {
-    /// This module is to be used when dividing from bytes to another unit such as mebibytes or gibibytes
-    pub mod byte {
-        /// B -> KiB (1024^1)
-        pub const KIBIBYTE: f64 = 1024.0;
-        /// B -> MiB (1024^2)
-        pub const MEBIBYTE: f64 = 1024.0 * 1024.0;
-        /// B -> GiB (1024^3)
-        pub const GIBIBYTE: f64 = 1024.0 * 1024.0 * 1024.0;
-        /// B -> TiB (1024^4)
-        pub const TEBIBYTE: f64 = 1024.0 * 1024.0 * 1024.0 * 1024.0;
-    }
-}
