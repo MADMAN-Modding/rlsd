@@ -1,3 +1,4 @@
+#[derive(Clone)]
 pub enum Unit {
     /// B (1024^0)
     BYTE,
@@ -31,6 +32,10 @@ impl Unit {
         }
     }
 
+    pub fn to_f64(&self) -> f64 {
+        self.to_uint() as f64
+    }
+
     /// Returns the next highest Unit
     pub fn next(&self) -> Unit {
         match self {
@@ -42,10 +47,6 @@ impl Unit {
             Self::PEBIBYTE => Self::PEBIBYTE,
             Self::Percentage => Self::Percentage,
         }
-    }
-
-    pub fn next_mut(&mut self) {
-        *self = self.next();
     }
 
     pub fn to_str(&self) -> &str {
@@ -92,15 +93,18 @@ pub mod byte_to_unit {
 }
 
 /// Formats bytes to the smallest possible unit
-pub fn format_bytes(mut bytes: f64, mut unit: &mut Unit) -> f64 {
-    unit = unit;
-    while bytes >= 1024.0 {
-        let next = unit.next();
-        if matches!(unit, Unit::PEBIBYTE) || matches!(next, Unit::PEBIBYTE) {
-            break;
-        }
-        *unit = next;
-        bytes /= 1024.0;
+pub fn format_bytes(bytes: f64, unit: Unit) -> f64 {
+    if bytes >= 1024.0 {
+        format_bytes(bytes / 1024.0, unit.next())
+    } else {
+        bytes
     }
-    bytes
+}
+
+pub fn get_unit(bytes: usize, unit: Unit) -> Unit {
+    if bytes >= 1024 {
+        get_unit(bytes / 1024, unit.next())
+    } else {
+        unit.clone()
+    }
 }

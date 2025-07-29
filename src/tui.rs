@@ -21,7 +21,7 @@ use std::{
 };
 
 use crate::stats_handling::{
-        conversions::{byte_to_unit, format_bytes, Unit}, database::{self, get_device_stats_after}, device_info::Device
+        conversions::{format_bytes, get_unit, Unit}, database::{self, get_device_stats_after}, device_info::Device
     };
 
 #[derive(Clone, Copy)]
@@ -252,32 +252,26 @@ pub async fn start_tui(database: &Pool<Sqlite>) -> Result<(), Box<dyn std::error
                         .collect();
                     
                     // Ram Usage
-                    let mut ram_unit = Unit::BYTE; 
-
                     let ram_data: Vec<(f64, f64)> = filtered
                         .iter()
                         .map(|d| {
                             (
                                 (d.time - time_min) as f64,
-                                format_bytes(d.ram_used as f64, &mut ram_unit),
+                                format_bytes(d.ram_used as f64, Unit::BYTE),
                             )
                         })
                         .collect();
 
                     // Network In
-                    let mut network_in_unit = Unit::BYTE;
-
                     let network_in_data: Vec<(f64, f64)> = filtered
                         .iter()
-                        .map(|d| ((d.time - time_min) as f64, format_bytes(d.network_in as f64, &mut network_in_unit)))
+                        .map(|d| ((d.time - time_min) as f64, format_bytes(d.network_in as f64, Unit::BYTE)))
                         .collect();
 
                     // Network Out
-                    let mut network_out_unit = Unit::BYTE;
-
                     let network_out_data: Vec<(f64, f64)> = filtered
                         .iter()
-                        .map(|d| ((d.time - time_min) as f64, format_bytes(d.network_out as f64, &mut network_out_unit)))
+                        .map(|d| ((d.time - time_min) as f64, format_bytes(d.network_out as f64, Unit::BYTE)))
                         .collect();
 
                     let graph_chunks = Layout::default()
@@ -304,12 +298,13 @@ pub async fn start_tui(database: &Pool<Sqlite>) -> Result<(), Box<dyn std::error
                         .iter()
                         .map(|d| d.ram_total as f64)
                         .max_by(|a, b| a.partial_cmp(b).unwrap_or(Ordering::Equal))
-                        .unwrap_or(0.0)
-                        / byte_to_unit::GIBIBYTE as f64;
+                        .unwrap_or(0.0);
 
                     // Makes RAM the chart
+                    let ram_unit = get_unit(ram_total as usize, Unit::BYTE);
+
                     let ram_chart =
-                        app.make_chart(&ram_data, ram_unit, duration, ram_total, "RAM", Color::Cyan);
+                        app.make_chart(&ram_data, ram_unit.clone(), duration, ram_total / ram_unit.to_f64(), "RAM", Color::Red);
 
                     f.render_widget(ram_chart, graph_chunks[1]);
 
@@ -319,11 +314,14 @@ pub async fn start_tui(database: &Pool<Sqlite>) -> Result<(), Box<dyn std::error
                         .map(|d| d.network_in as f64)
                         .max_by(|a, b| a.partial_cmp(b).unwrap_or(Ordering::Equal)).unwrap_or(0.0);
 
+                    let network_in_unit = get_unit(network_in_max as usize, Unit::BYTE);
+
                     let network_out_max = filtered
                         .iter()
                         .map(|d| d.network_out as f64)
                         .max_by(|a, b| a.partial_cmp(b).unwrap_or(Ordering::Equal)).unwrap_or(0.0);
 
+                    let network_out_unit = get_unit(network_out_max as usize, Unit::BYTE);
 
                     let (network_max, network_unit): (f64, Unit) = if network_in_max > network_out_max {
                         (network_in_max, network_in_unit)
@@ -335,7 +333,7 @@ pub async fn start_tui(database: &Pool<Sqlite>) -> Result<(), Box<dyn std::error
                         Dataset::default()
                             .name("Network In")
                             .marker(symbols::Marker::Dot)
-                            .style(Style::default().fg(Color::Green))
+                            .style(Style::default().fg(Color::Magenta))
                             .data(&network_in_data),
                         Dataset::default()
                             .name("Network Out")
@@ -354,7 +352,7 @@ pub async fn start_tui(database: &Pool<Sqlite>) -> Result<(), Box<dyn std::error
                             .borders(Borders::ALL),
                     );
 
-                    network_chart = app.detail_chart(network_chart, network_unit, duration, network_max);
+                    network_chart = app.detail_chart(network_chart, network_unit.clone(), duration, network_max / network_unit.to_f64());
 
                     f.render_widget(network_chart, graph_chunks[2]);
                 }

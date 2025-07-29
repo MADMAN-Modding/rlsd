@@ -7,9 +7,7 @@ use rlsd::{
     input,
     json_handler::write_json_from_value,
     socket_handling::{self, data_receiver::Receiver},
-    stats_handling::{
-        database::{self, get_all_device_uids, get_device_name_from_uid},
-        stats_loop,
+    stats_handling::{database::{self, get_all_device_uids, get_device_name_from_uid}, stats_loop
     },
     tui,
 };
@@ -24,7 +22,6 @@ async fn main() {
 
     match args.to_vec().get(1).unwrap().as_str() {
         // Help
-
         // List, lists all the uids and their friendly names
         "-l" | "--list" => {
             let ids = get_all_device_uids(&database).await;
