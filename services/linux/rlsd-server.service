@@ -1,0 +1,10 @@
+[Unit]
+Description=RetroLookingStatisticsDisplay
+After=network.target
+
+[Service]
+ExecStart=/usr/bin/rlsd -c
+ExecStop=/usr/bin/pkill rlsd
+
+[Install]
+WantedBy=default.target
