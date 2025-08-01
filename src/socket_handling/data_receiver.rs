@@ -132,9 +132,11 @@ impl Receiver {
 
         let device = json.to_device();
 
-        // println!("INPUT RECEIVED:\n{}\n{}\n{}", get_divider(), device.to_string().blue().bold(), get_divider());
-
-        database::input_data(device, &self.database).await.ok();
+        if device.device_id != "N/A" {
+            // println!("INPUT RECEIVED:\n{}\n{}\n{}", get_divider(), device.to_string().blue().bold(), get_divider());
+            
+            database::input_data(device, &self.database).await.ok();
+        }
     }
 
     fn output(&mut self) {}

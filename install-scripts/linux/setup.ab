@@ -1,5 +1,5 @@
 import { file_download } from "std/http"
-import { file_chmod, file_chown } from "std/fs"
+import { file_chmod, file_chown, file_exists } from "std/fs"
 import { input_confirm, is_root } from "std/env"
 
 let server_url = "https://madman-modding.github.io/rlsd"
@@ -19,27 +19,15 @@ fun echo_color(text: Text, color: Text): Null {
 fun download_rlsd(version: Text): Bool {
     echo_color("Installing rlsd...", BLUE)
 
+    if file_exists("/usr/bin/rlsd") {
+        trust $ sudo rm -f /usr/bin/rlsd $
+    }
+
     let download_result = file_download("{server_url}/bin/linux/{version}", "/usr/bin/rlsd")
 
     let chmod_result = file_chmod("/usr/bin/rlsd", "+x")
 
     return download_result and chmod_result
-}
-
-fun download_services(): Bool {
-    echo_color("Installing services...", BLUE)    
-
-    let service_dir = "/etc/systemd/system"
-
-    // Download client service
-    "services/linux/rlsd-server.service"
-    let client_result = file_download("{server_url}/services/linux/rlsd-client.service", "{service_dir}/rlsd-client.service")
-
-    // Download server service
-    let server_result = file_download("{server_url}/services/linux/rlsd-server.service", "{service_dir}/rlsd-server.service")
-
-    // Return true if both succeed
-    return client_result and server_result
 }
 
 /// Runs the setup script
@@ -54,14 +42,6 @@ fun setup(): Bool? {
     // Downloads the selected binary
     if download_rlsd(choice) {echo_color("Install Succeeded", GREEN)}
     else {echo_color("Install Failed, check the above error message", RED) fail}
-
-    // Install services
-    let choice = input_confirm("{BLUE}Install systemd services?{RESET}", true)
-
-    if (choice) {
-        if download_services(): echo_color("Install Succeeded", GREEN)
-        else: echo_color("Install Failed, check the above error message", RED)
-    }
 
     return true
 }
