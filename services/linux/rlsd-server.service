@@ -1,9 +1,9 @@
 [Unit]
-Description=RetroLookingStatisticsDisplay
+Description=RetroLookingStatisticsDisplayServer
 After=network.target
 
 [Service]
-ExecStart=/usr/bin/rlsd -c
+ExecStart=/usr/bin/rlsd -s
 ExecStop=/usr/bin/pkill rlsd
 
 [Install]
