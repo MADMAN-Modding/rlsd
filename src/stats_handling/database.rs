@@ -5,7 +5,7 @@ use sqlx::{
     Pool, Row, Sqlite,
 };
 
-use crate::stats_handling::device_info::Device;
+use crate::{constants::{self}, stats_handling::device_info::Device};
 
 /// Connects to the sqlite database and runs migrations
 ///
@@ -16,15 +16,23 @@ pub async fn start_db() -> Pool<Sqlite> {
         env::set_var("DATABASE_URL", "sqlite://database.sqlite");
     }
 
+    let db_path = if cfg!(debug_assertions) {
+        "database.sqlite".to_string()
+    } else {
+        constants::get_db_path()
+    };
+
     let database = SqlitePoolOptions::new()
         .max_connections(5)
         .connect_with(
             SqliteConnectOptions::new()
-                .filename("database.sqlite")
+                .filename(db_path)
                 .create_if_missing(true),
         )
         .await
         .expect("Couldn't connect to database");
+
+
 
     match sqlx::migrate!("./migrations").run(&database).await {
         Ok(_) => {}

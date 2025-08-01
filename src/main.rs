@@ -20,8 +20,9 @@ async fn main() {
 
     let database = database::start_db().await;
 
-    match args.to_vec().get(1).unwrap().as_str() {
+    match args.to_vec().get(1).map_or("--help", |v| v) {
         // Help
+        "-h" | "--help" => {},
         // List, lists all the uids and their friendly names
         "-l" | "--list" => {
             let ids = get_all_device_uids(&database).await;
