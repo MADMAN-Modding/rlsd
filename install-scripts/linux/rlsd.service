@@ -1,0 +1,14 @@
+[Unit]
+Description=Run RLSD daemon
+After=network.target
+
+[Service]
+Type=simple
+User=rlsd
+ExecStart=/usr/bin/rlsd -c
+Restart=on-failure
+RestartSec=5s
+WorkingDirectory=/home/rlsd
+
+[Install]
+WantedBy=multi-user.target
