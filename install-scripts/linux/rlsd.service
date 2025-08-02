@@ -7,7 +7,6 @@ Type=simple
 ExecStart=/usr/bin/rlsd -c
 Restart=on-failure
 RestartSec=5s
-WorkingDirectory=/home/rlsd
 
 [Install]
 WantedBy=multi-user.target
