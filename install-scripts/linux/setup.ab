@@ -3,7 +3,7 @@ import { file_chmod, file_chown, file_exists } from "std/fs"
 import { input_prompt, is_root } from "std/env"
 import { parse_number } from "std/text"
 
-let server_url = "https://madman-modding.github.io/rlsd"
+let server_url = "https://raw.githubusercontent.com/MADMAN-Modding/rlsd/refs/heads/master"
 
 const RED = "\e[31m"
 const GREEN = "\e[32m"

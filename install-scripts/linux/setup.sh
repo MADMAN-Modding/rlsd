@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Written in [Amber](https://amber-lang.com/)
 # version: 0.4.0-alpha
-# date: 2025-08-01 20:20:00
+# date: 2025-08-01 20:35:12
 parse_number__12_v0() {
     local text=$1
      [ -n "${text}" ] && [ "${text}" -eq "${text}" ] 2>/dev/null ;
@@ -92,7 +92,7 @@ fi
     __AF_file_download135_v0=1;
     return 0
 }
-__0_server_url="https://madman-modding.github.io/rlsd"
+__0_server_url="https://raw.githubusercontent.com/MADMAN-Modding/rlsd/refs/heads/master"
 __1_RED="\e[31m"
 __2_GREEN="\e[32m"
 __3_BLUE="\e[34m"
