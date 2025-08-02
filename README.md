@@ -13,6 +13,8 @@
 
 # Setup
 
+The script was built using Amber, please install the following package: <a href="https://archlinux.org/packages/extra/x86_64/bc/" target="_blank">`bc`</a>
+
 The script requires root access as it will place the binary in /usr/lib/rlsd, create a user, and create a systemd service
 
 Run the following commands:
