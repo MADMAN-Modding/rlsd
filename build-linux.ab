@@ -12,27 +12,32 @@ fun echo_color(text: Text, color: Text): Null {
     trust $ echo -e "{text}{RESET}"$
 }
 
-echo_color("Building Linux...", BLUE)
+// List of target names
+let architectures = ["x86_64-unknown-linux-gnu", "x86_64-unknown-linux-musl", "armv7-unknown-linux-gnueabihf", "aarch64-unknown-linux-gnu"]
 
-$ cargo build --release $ failed {
-    echo_color("Linux build failed", RED)
-}
+// List of names for each target in the same order
+let arch_names = ["x86_64", "musl", "armv7", "aarch64"]
 
-echo_color("Building Linux-musl...", BLUE)
+// Builds each architecture
+for i, arch in architectures {
+    echo_color("Building Linux-{arch_names[i]}...", BLUE)
 
-$ rustup target add x86_64-unknown-linux-musl; cargo build --release --target x86_64-unknown-linux-musl $ failed {
-    echo_color("Linux-musl build failed", RED)
+    trust $ sleep 1 $
+
+    $ cross build --target {arch} --release $ failed {
+        echo_color("{arch_names[i]} build failed", RED)
+    }
 }
 
 // Copy files to bin folder
 if dir_exists("target") {
-    let linux_build_path = "target/release/rlsd"
-    let linux_musl_build_path = "target/x86_64-unknown-linux-musl/release/rlsd"
+    for i, arch in architectures {
+        let build_path = "target/{arch}/release/rlsd"
 
-    echo_color("'target' dir found...\nCopying files...", BLUE)
-    trust $ cp {linux_build_path} bin/linux/rlsd $
-    
-    trust $ cp {linux_musl_build_path} bin/linux/rlsd-musl $
+        $ cp {build_path} bin/linux/rlsd-{arch_names[i]} $ failed {
+            echo_color("Failed to copy rlsd-{arch_names[i]}", RED)
+        }
+    }
 
     echo_color("Copy Completed", GREEN)
 } else {

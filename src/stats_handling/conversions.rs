@@ -20,7 +20,7 @@ impl Unit {
     ///
     /// # Returns
     /// * `usize` - Value of the unit in Bytes
-    pub fn to_uint(&self) -> usize {
+    pub fn to_uint(&self) -> u128 {
         match self {
             Self::BYTE => byte_to_unit::BYTE,
             Self::KIBIBYTE => byte_to_unit::KIBIBYTE,
@@ -79,17 +79,17 @@ impl std::fmt::Display for Unit {
 /// This module is to be used when dividing from bytes to another unit such as mebibytes or gibibytes
 pub mod byte_to_unit {
     /// B -> B (2^0)
-    pub const BYTE: usize = usize::pow(2, 0);
+    pub const BYTE: u128 = u128::pow(2, 0);
     /// B -> KiB (2^10)
-    pub const KIBIBYTE: usize = usize::pow(2, 10);
+    pub const KIBIBYTE: u128 = u128::pow(2, 10);
     /// B -> MiB (2^20)
-    pub const MEBIBYTE: usize = usize::pow(2, 20);
+    pub const MEBIBYTE: u128 = u128::pow(2, 20);
     /// B -> GiB (2^30)
-    pub const GIBIBYTE: usize = usize::pow(2, 30);
+    pub const GIBIBYTE: u128 = u128::pow(2, 30);
     /// B -> TiB (2^40)
-    pub const TEBIBYTE: usize = usize::pow(2, 40);
+    pub const TEBIBYTE: u128 = u128::pow(2, 40);
     /// B -> PiB (2^50)
-    pub const PEBIBYTE: usize = usize::pow(2, 50);
+    pub const PEBIBYTE: u128 = u128::pow(2, 50);
 }
 
 /// Formats bytes to the smallest possible unit
