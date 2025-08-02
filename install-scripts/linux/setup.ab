@@ -38,19 +38,19 @@ fun setup_client() {
         echo_color("Make sure your rlsd server is running and you know the IP", BLUE)
 
         trust $ rlsd --setup $
+    }
 
-        let choice = input_confirm("Setup systemd autostart service?", true)
+    let choice = input_confirm("Setup systemd autostart service?", true)
 
-        if choice and file_download("{server_url}/install-scripts/linux/rlsd.service", "/etc/systemd/system/rlsd.service") {
-            trust $ systemctl daemon-reexec $
-            trust $ systemctl daemon-reload $
-            $ systemctl enable --now rlsd $ failed {
-                echo_color("Error enabling/starting RLSD service", RED)
-            }
-        } else {
-            echo_color("Error downloading systemd service", RED)
-            fail 2
+    if choice and file_download("{server_url}/install-scripts/linux/rlsd.service", "/etc/systemd/system/rlsd.service") {
+        trust $ systemctl daemon-reexec $
+        trust $ systemctl daemon-reload $
+        $ systemctl enable --now rlsd $ failed {
+            echo_color("Error enabling/starting RLSD service", RED)
         }
+    } else {
+        echo_color("Error downloading systemd service", RED)
+        fail 2
     }
 
     return true

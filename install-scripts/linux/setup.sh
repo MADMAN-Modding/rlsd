@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Written in [Amber](https://amber-lang.com/)
 # version: 0.4.0-alpha
-# date: 2025-08-01 21:39:18
+# date: 2025-08-01 21:44:48
 lowercase__10_v0() {
     local text=$1
     __AMBER_VAL_0=$( echo "${text}" | tr '[:upper:]' '[:lower:]' );
@@ -162,30 +162,30 @@ setup_client__146_v0() {
         echo "$__AF_echo_color144_v0__38_9" > /dev/null 2>&1
          rlsd --setup ;
         __AS=$?
-        input_confirm__96_v0 "Setup systemd autostart service?" 1;
-        __AF_input_confirm96_v0__42_22="$__AF_input_confirm96_v0";
-        local choice="$__AF_input_confirm96_v0__42_22"
-        file_download__135_v0 "${__0_server_url}/install-scripts/linux/rlsd.service" "/etc/systemd/system/rlsd.service";
-        __AF_file_download135_v0__44_23="$__AF_file_download135_v0";
-        if [ $(echo ${choice} '&&' "$__AF_file_download135_v0__44_23" | bc -l | sed '/\./ s/\.\{0,1\}0\{1,\}$//') != 0 ]; then
-             systemctl daemon-reexec ;
-            __AS=$?
-             systemctl daemon-reload ;
-            __AS=$?
-             systemctl enable --now rlsd ;
-            __AS=$?;
+fi
+    input_confirm__96_v0 "Setup systemd autostart service?" 1;
+    __AF_input_confirm96_v0__43_18="$__AF_input_confirm96_v0";
+    local choice="$__AF_input_confirm96_v0__43_18"
+    file_download__135_v0 "${__0_server_url}/install-scripts/linux/rlsd.service" "/etc/systemd/system/rlsd.service";
+    __AF_file_download135_v0__45_19="$__AF_file_download135_v0";
+    if [ $(echo ${choice} '&&' "$__AF_file_download135_v0__45_19" | bc -l | sed '/\./ s/\.\{0,1\}0\{1,\}$//') != 0 ]; then
+         systemctl daemon-reexec ;
+        __AS=$?
+         systemctl daemon-reload ;
+        __AS=$?
+         systemctl enable --now rlsd ;
+        __AS=$?;
 if [ $__AS != 0 ]; then
-                echo_color__144_v0 "Error enabling/starting RLSD service" "${__1_RED}";
-                __AF_echo_color144_v0__48_17="$__AF_echo_color144_v0";
-                echo "$__AF_echo_color144_v0__48_17" > /dev/null 2>&1
+            echo_color__144_v0 "Error enabling/starting RLSD service" "${__1_RED}";
+            __AF_echo_color144_v0__49_13="$__AF_echo_color144_v0";
+            echo "$__AF_echo_color144_v0__49_13" > /dev/null 2>&1
 fi
 else
-            echo_color__144_v0 "Error downloading systemd service" "${__1_RED}";
-            __AF_echo_color144_v0__51_13="$__AF_echo_color144_v0";
-            echo "$__AF_echo_color144_v0__51_13" > /dev/null 2>&1
-            __AF_setup_client146_v0='';
-            return 2
-fi
+        echo_color__144_v0 "Error downloading systemd service" "${__1_RED}";
+        __AF_echo_color144_v0__52_9="$__AF_echo_color144_v0";
+        echo "$__AF_echo_color144_v0__52_9" > /dev/null 2>&1
+        __AF_setup_client146_v0='';
+        return 2
 fi
     __AF_setup_client146_v0=1;
     return 0
