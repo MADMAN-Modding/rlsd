@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Written in [Amber](https://amber-lang.com/)
 # version: 0.4.0-alpha
-# date: 2025-08-01 21:36:42
+# date: 2025-08-01 21:39:18
 lowercase__10_v0() {
     local text=$1
     __AMBER_VAL_0=$( echo "${text}" | tr '[:upper:]' '[:lower:]' );
@@ -154,7 +154,7 @@ fi
     return 0
 }
 setup_client__146_v0() {
-    input_confirm__96_v0 "Setup RLSD config for clients? (if no, you'll have to su to the rlsd user later)" 1;
+    input_confirm__96_v0 "Setup RLSD config for clients? (if no, you'll have to sudo su later)" 1;
     __AF_input_confirm96_v0__37_8="$__AF_input_confirm96_v0";
     if [ "$__AF_input_confirm96_v0__37_8" != 0 ]; then
         echo_color__144_v0 "Make sure your rlsd server is running and you know the IP" "${__3_BLUE}";

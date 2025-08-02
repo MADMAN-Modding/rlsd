@@ -34,7 +34,7 @@ fun download_rlsd(version: Text): Bool {
 }
 
 fun setup_client() {
-    if input_confirm("Setup RLSD config for clients? (if no, you'll have to su to the rlsd user later)", true) {
+    if input_confirm("Setup RLSD config for clients? (if no, you'll have to sudo su later)", true) {
         echo_color("Make sure your rlsd server is running and you know the IP", BLUE)
 
         trust $ rlsd --setup $
