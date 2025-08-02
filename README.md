@@ -11,6 +11,24 @@
 
 <p>The purpose of this project is for devices to send statistics to a host machine that will display the information on a retro looking TUI. I started this project because I thought it'd be fun.</p>
 
+# Setup
+
+The script requires root access as it will place the binary in /usr/lib/rlsd, create a user, and create a systemd service
+
+Run the following commands:
+
+        # Downloads the script
+        curl -o rlsd-install.sh https://raw.githubusercontent.com/MADMAN-Modding/rlsd/refs/heads/master/install-scripts/linux/setup.sh
+        
+        # Makes it executable
+        chmod +x rlsd-install.sh
+
+        # Run the script as root
+        sudo ./rlsd-install.sh
+
+        # Remove the script
+        rm rlsd-install.sh
+
 # Building
 
 <h3>Dependencies</h3>
