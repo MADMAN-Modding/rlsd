@@ -1,6 +1,6 @@
 import { file_download } from "std/http"
 import { file_chmod, file_chown, file_exists } from "std/fs"
-import { input_prompt, is_root } from "std/env"
+import { input_prompt, input_confirm, is_root } from "std/env"
 import { parse_number } from "std/text"
 
 let server_url = "https://raw.githubusercontent.com/MADMAN-Modding/rlsd/refs/heads/master"
@@ -33,6 +33,31 @@ fun download_rlsd(version: Text): Bool {
     return download_result and chmod_result
 }
 
+fun make_user() {
+    trust $ useradd rlsd $
+
+    if input_confirm("Setup RLSD config for clients? (if no, you'll have to su to the rlsd user later)", true) {
+        echo_color("Make sure your rlsd server is running and you know the IP", BLUE)
+
+        trust $ rlsd --setup $
+
+        let choice = input_confirm("Setup systemd autostart service?", true)
+
+        if choice and file_download("{server_url}/install-scripts/linux/rlsd.service", "/etc/systemd/system/rlsd.service") {
+            trust $ systemctl daemon-reexec $
+            trust $ systemctl daemon-reload $
+            $ systemctl enable --now rlsd $ failed {
+                echo_color("Error enabling/starting RLSD service", RED)
+            }
+        } else {
+            echo_color("Error downloading systemd service", RED)
+            fail 2
+        }
+    }
+
+    return true
+}
+
 /// Runs the setup script
 fun setup(): Bool? {
     let prompt = "Please choose one of the following architectures:\n"
@@ -48,7 +73,7 @@ fun setup(): Bool? {
 
     if (choice == 0 or choice > len(architectures)) {
         echo_color("Invalid choice", RED)
-        fail
+        fail 1
     }
 
     let architecture = architectures[choice-1]
@@ -58,6 +83,9 @@ fun setup(): Bool? {
     // Downloads the selected binary
     if download_rlsd("rlsd-{architecture}") {echo_color("Install Succeeded", GREEN)}
     else {echo_color("Install Failed, check the above error message", RED) fail}
+
+    // Setup rlsd user
+    if input_confirm("Setup rlsd user? (recommended)", true): make_user() failed {return false}
 
     return true
 }
