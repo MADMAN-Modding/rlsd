@@ -33,9 +33,7 @@ fun download_rlsd(version: Text): Bool {
     return download_result and chmod_result
 }
 
-fun make_user() {
-    trust $ useradd rlsd $
-
+fun setup_client() {
     if input_confirm("Setup RLSD config for clients? (if no, you'll have to su to the rlsd user later)", true) {
         echo_color("Make sure your rlsd server is running and you know the IP", BLUE)
 
@@ -85,7 +83,7 @@ fun setup(): Bool? {
     else {echo_color("Install Failed, check the above error message", RED) fail}
 
     // Setup rlsd user
-    if input_confirm("Setup rlsd user? (recommended)", true): make_user() failed {return false}
+    if input_confirm("Setup rlsd client?", true): setup_client() failed {return false}
 
     return true
 }

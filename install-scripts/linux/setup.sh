@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Written in [Amber](https://amber-lang.com/)
 # version: 0.4.0-alpha
-# date: 2025-08-01 21:15:11
+# date: 2025-08-01 21:36:42
 lowercase__10_v0() {
     local text=$1
     __AMBER_VAL_0=$( echo "${text}" | tr '[:upper:]' '[:lower:]' );
@@ -153,23 +153,21 @@ fi
     __AF_download_rlsd145_v0=$(echo ${download_result} '&&' ${chmod_result} | bc -l | sed '/\./ s/\.\{0,1\}0\{1,\}$//');
     return 0
 }
-make_user__146_v0() {
-     useradd rlsd ;
-    __AS=$?
+setup_client__146_v0() {
     input_confirm__96_v0 "Setup RLSD config for clients? (if no, you'll have to su to the rlsd user later)" 1;
-    __AF_input_confirm96_v0__39_8="$__AF_input_confirm96_v0";
-    if [ "$__AF_input_confirm96_v0__39_8" != 0 ]; then
+    __AF_input_confirm96_v0__37_8="$__AF_input_confirm96_v0";
+    if [ "$__AF_input_confirm96_v0__37_8" != 0 ]; then
         echo_color__144_v0 "Make sure your rlsd server is running and you know the IP" "${__3_BLUE}";
-        __AF_echo_color144_v0__40_9="$__AF_echo_color144_v0";
-        echo "$__AF_echo_color144_v0__40_9" > /dev/null 2>&1
+        __AF_echo_color144_v0__38_9="$__AF_echo_color144_v0";
+        echo "$__AF_echo_color144_v0__38_9" > /dev/null 2>&1
          rlsd --setup ;
         __AS=$?
         input_confirm__96_v0 "Setup systemd autostart service?" 1;
-        __AF_input_confirm96_v0__44_22="$__AF_input_confirm96_v0";
-        local choice="$__AF_input_confirm96_v0__44_22"
+        __AF_input_confirm96_v0__42_22="$__AF_input_confirm96_v0";
+        local choice="$__AF_input_confirm96_v0__42_22"
         file_download__135_v0 "${__0_server_url}/install-scripts/linux/rlsd.service" "/etc/systemd/system/rlsd.service";
-        __AF_file_download135_v0__46_23="$__AF_file_download135_v0";
-        if [ $(echo ${choice} '&&' "$__AF_file_download135_v0__46_23" | bc -l | sed '/\./ s/\.\{0,1\}0\{1,\}$//') != 0 ]; then
+        __AF_file_download135_v0__44_23="$__AF_file_download135_v0";
+        if [ $(echo ${choice} '&&' "$__AF_file_download135_v0__44_23" | bc -l | sed '/\./ s/\.\{0,1\}0\{1,\}$//') != 0 ]; then
              systemctl daemon-reexec ;
             __AS=$?
              systemctl daemon-reload ;
@@ -178,18 +176,18 @@ make_user__146_v0() {
             __AS=$?;
 if [ $__AS != 0 ]; then
                 echo_color__144_v0 "Error enabling/starting RLSD service" "${__1_RED}";
-                __AF_echo_color144_v0__50_17="$__AF_echo_color144_v0";
-                echo "$__AF_echo_color144_v0__50_17" > /dev/null 2>&1
+                __AF_echo_color144_v0__48_17="$__AF_echo_color144_v0";
+                echo "$__AF_echo_color144_v0__48_17" > /dev/null 2>&1
 fi
 else
             echo_color__144_v0 "Error downloading systemd service" "${__1_RED}";
-            __AF_echo_color144_v0__53_13="$__AF_echo_color144_v0";
-            echo "$__AF_echo_color144_v0__53_13" > /dev/null 2>&1
-            __AF_make_user146_v0='';
+            __AF_echo_color144_v0__51_13="$__AF_echo_color144_v0";
+            echo "$__AF_echo_color144_v0__51_13" > /dev/null 2>&1
+            __AF_setup_client146_v0='';
             return 2
 fi
 fi
-    __AF_make_user146_v0=1;
+    __AF_setup_client146_v0=1;
     return 0
 }
 setup__147_v0() {
@@ -203,53 +201,53 @@ for arch in "${__5_architectures[@]}"; do
 done
     # This gets the user-input as a number
     input_prompt__94_v0 "${prompt}";
-    __AF_input_prompt94_v0__70_18="${__AF_input_prompt94_v0}";
-    local choice="${__AF_input_prompt94_v0__70_18}"
+    __AF_input_prompt94_v0__68_18="${__AF_input_prompt94_v0}";
+    local choice="${__AF_input_prompt94_v0__68_18}"
     parse_number__12_v0 "${choice}";
     __AS=$?;
 if [ $__AS != 0 ]; then
 __AF_setup147_v0=''
 return $__AS
 fi;
-    __AF_parse_number12_v0__72_18="$__AF_parse_number12_v0";
-    local choice="$__AF_parse_number12_v0__72_18"
+    __AF_parse_number12_v0__70_18="$__AF_parse_number12_v0";
+    local choice="$__AF_parse_number12_v0__70_18"
     if [ $(echo $(echo ${choice} '==' 0 | bc -l | sed '/\./ s/\.\{0,1\}0\{1,\}$//') '||' $(echo ${choice} '>' "${#__5_architectures[@]}" | bc -l | sed '/\./ s/\.\{0,1\}0\{1,\}$//') | bc -l | sed '/\./ s/\.\{0,1\}0\{1,\}$//') != 0 ]; then
         echo_color__144_v0 "Invalid choice" "${__1_RED}";
-        __AF_echo_color144_v0__75_9="$__AF_echo_color144_v0";
-        echo "$__AF_echo_color144_v0__75_9" > /dev/null 2>&1
+        __AF_echo_color144_v0__73_9="$__AF_echo_color144_v0";
+        echo "$__AF_echo_color144_v0__73_9" > /dev/null 2>&1
         __AF_setup147_v0='';
         return 1
 fi
     local architecture="${__5_architectures[$(echo ${choice} '-' 1 | bc -l | sed '/\./ s/\.\{0,1\}0\{1,\}$//')]}"
     echo_color__144_v0 "${architecture} selected" "${__3_BLUE}";
-    __AF_echo_color144_v0__81_5="$__AF_echo_color144_v0";
-    echo "$__AF_echo_color144_v0__81_5" > /dev/null 2>&1
+    __AF_echo_color144_v0__79_5="$__AF_echo_color144_v0";
+    echo "$__AF_echo_color144_v0__79_5" > /dev/null 2>&1
     # Downloads the selected binary
     download_rlsd__145_v0 "rlsd-${architecture}";
-    __AF_download_rlsd145_v0__84_8="$__AF_download_rlsd145_v0";
-    if [ "$__AF_download_rlsd145_v0__84_8" != 0 ]; then
+    __AF_download_rlsd145_v0__82_8="$__AF_download_rlsd145_v0";
+    if [ "$__AF_download_rlsd145_v0__82_8" != 0 ]; then
         echo_color__144_v0 "Install Succeeded" "${__2_GREEN}";
-        __AF_echo_color144_v0__84_46="$__AF_echo_color144_v0";
-        echo "$__AF_echo_color144_v0__84_46" > /dev/null 2>&1
+        __AF_echo_color144_v0__82_46="$__AF_echo_color144_v0";
+        echo "$__AF_echo_color144_v0__82_46" > /dev/null 2>&1
 else
         echo_color__144_v0 "Install Failed, check the above error message" "${__1_RED}";
-        __AF_echo_color144_v0__85_11="$__AF_echo_color144_v0";
-        echo "$__AF_echo_color144_v0__85_11" > /dev/null 2>&1
+        __AF_echo_color144_v0__83_11="$__AF_echo_color144_v0";
+        echo "$__AF_echo_color144_v0__83_11" > /dev/null 2>&1
         __AF_setup147_v0='';
         return 1
 fi
     # Setup rlsd user
-    input_confirm__96_v0 "Setup rlsd user? (recommended)" 1;
-    __AF_input_confirm96_v0__88_8="$__AF_input_confirm96_v0";
-    if [ "$__AF_input_confirm96_v0__88_8" != 0 ]; then
-        make_user__146_v0 ;
+    input_confirm__96_v0 "Setup rlsd client?" 1;
+    __AF_input_confirm96_v0__86_8="$__AF_input_confirm96_v0";
+    if [ "$__AF_input_confirm96_v0__86_8" != 0 ]; then
+        setup_client__146_v0 ;
         __AS=$?;
 if [ $__AS != 0 ]; then
             __AF_setup147_v0=0;
             return 0
 fi;
-        __AF_make_user146_v0__88_63="$__AF_make_user146_v0";
-        echo "$__AF_make_user146_v0__88_63" > /dev/null 2>&1
+        __AF_setup_client146_v0__86_51="$__AF_setup_client146_v0";
+        echo "$__AF_setup_client146_v0__86_51" > /dev/null 2>&1
 fi
     __AF_setup147_v0=1;
     return 0
@@ -257,26 +255,26 @@ fi
 declare -r args=("$0" "$@")
     # Checks if the user is root
     is_root__98_v0 ;
-    __AF_is_root98_v0__95_8="$__AF_is_root98_v0";
-    if [ "$__AF_is_root98_v0__95_8" != 0 ]; then
+    __AF_is_root98_v0__93_8="$__AF_is_root98_v0";
+    if [ "$__AF_is_root98_v0__93_8" != 0 ]; then
         echo_color__144_v0 "Root check passed" "${__2_GREEN}";
-        __AF_echo_color144_v0__96_9="$__AF_echo_color144_v0";
-        echo "$__AF_echo_color144_v0__96_9" > /dev/null 2>&1
+        __AF_echo_color144_v0__94_9="$__AF_echo_color144_v0";
+        echo "$__AF_echo_color144_v0__94_9" > /dev/null 2>&1
         setup__147_v0 ;
         __AS=$?;
-        __AF_setup147_v0__98_28="$__AF_setup147_v0";
-        result="$__AF_setup147_v0__98_28"
+        __AF_setup147_v0__96_28="$__AF_setup147_v0";
+        result="$__AF_setup147_v0__96_28"
         if [ ${result} != 0 ]; then
             echo_color__144_v0 "Setup Finished" "${__2_GREEN}";
-            __AF_echo_color144_v0__100_20="$__AF_echo_color144_v0";
-            echo "$__AF_echo_color144_v0__100_20" > /dev/null 2>&1
+            __AF_echo_color144_v0__98_20="$__AF_echo_color144_v0";
+            echo "$__AF_echo_color144_v0__98_20" > /dev/null 2>&1
 else
             echo_color__144_v0 "Setup Failed" "${__1_RED}";
-            __AF_echo_color144_v0__101_15="$__AF_echo_color144_v0";
-            echo "$__AF_echo_color144_v0__101_15" > /dev/null 2>&1
+            __AF_echo_color144_v0__99_15="$__AF_echo_color144_v0";
+            echo "$__AF_echo_color144_v0__99_15" > /dev/null 2>&1
 fi
 else
         echo_color__144_v0 "Root check failed; please run as root" "${__1_RED}";
-        __AF_echo_color144_v0__103_9="$__AF_echo_color144_v0";
-        echo "$__AF_echo_color144_v0__103_9" > /dev/null 2>&1
+        __AF_echo_color144_v0__101_9="$__AF_echo_color144_v0";
+        echo "$__AF_echo_color144_v0__101_9" > /dev/null 2>&1
 fi

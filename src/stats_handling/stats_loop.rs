@@ -14,7 +14,7 @@ use crate::{
 };
 
 pub async fn start_stats_loop() {
-    thread::spawn(|| {
+    let result = thread::spawn(|| {
         let device_id = read_client_config_json("deviceID");
 
         let device_name = read_client_config_json("deviceName");
@@ -38,6 +38,11 @@ pub async fn start_stats_loop() {
             thread::sleep(Duration::from_secs(60));
         }
     })
-    .join()
-    .unwrap();
+    .join();
+
+    match result {
+        Ok(v) => v,
+        Err(e) => println!("{:?}", e)
+    }
+    
 }
