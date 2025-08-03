@@ -5,7 +5,7 @@ use rlsd::{
     config::client::Client,
     constants::{self, get_client_config_path},
     input,
-    json_handler::write_json_from_value,
+    json_handler::{self, write_json_from_value},
     socket_handling::{self, data_receiver::Receiver},
     stats_handling::{database::{self, get_all_device_uids, get_device_name_from_uid}, stats_loop
     },
@@ -18,9 +18,11 @@ async fn main() {
 
     let args: Vec<String> = env::args().collect();
 
+    let vec_args = args.to_vec();
+
     let database = database::start_db().await;
 
-    match args.to_vec().get(1).map_or("--help", |v| v) {
+    match vec_args.get(1).map_or("--help", |v| v) {
         // Help
         "-h" | "--help" => {},
         // List, lists all the uids and their friendly names
@@ -42,6 +44,33 @@ async fn main() {
                 None => eprintln!("Please specify a device id")
             }
         }
+        "--config" => {
+            match vec_args.get(2).map_or("", |v| v) {
+                "name" => {
+                    match vec_args.get(3) {
+                        Some(v) => {
+                            json_handler::write_config("deviceName", v);
+                        },
+                        None => println!("Please supply the name of your device.")
+                    }
+                },
+                "server-ip" => {
+                    match vec_args.get(3) {
+                        Some(v) => {
+                            let addr = if v.find(":").is_none() {
+                                format!("{}:51347", v)
+                            } else {
+                                v.to_string()
+                            };
+
+                            json_handler::write_config("serverAddr", addr)
+                        },
+                        None => println!("Please supply the ip of your server machine")
+                    }
+                }
+                _ => println!("Invalid format, use the following: rlsd --config <setting> <value>\nPossibly settings: name, server-ip")
+            }
+        },
         // Server, starts the socket on a separate thread and then launches the TUI
         "-s" | "--server" => {
             let db_clone = database.clone();
