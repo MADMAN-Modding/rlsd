@@ -259,7 +259,7 @@ pub fn write_nested_json_no_io(mut json : Value, keys: String, value: Value) -> 
 /// # Parameters
 /// `json_key: &str` - Key to write to
 /// `value : &str` - Value to write to the key 
-pub fn write_config<T: ToString>(json_key: &str, value: T) {
+pub fn write_client_config<T: ToString>(json_key: &str, value: T) {
     write_json(
         &constants::get_client_config_path(),
         json_key,
@@ -350,7 +350,7 @@ pub fn reset_config() {
         // If the key is a string, it will write the key and value to the config file
         let value = key.1.to_string().replace("\"", "");
 
-        write_config(key.0, value.as_str());
+        write_client_config(key.0, value.as_str());
     }
 }
 

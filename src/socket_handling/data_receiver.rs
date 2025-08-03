@@ -8,7 +8,7 @@ use serde_json::Value;
 use sqlx::{Pool, Sqlite};
 
 use crate::{
-    json_handler::ToDevice,
+    json_handler::{self, ToDevice},
     socket_handling::command_type::{CommandTraits, Commands},
     stats_handling::{database, device_info::get_device_id, stats_getter},
 };
@@ -108,8 +108,8 @@ impl Receiver {
 
         // Match the command to the Commands enum
         match command.to_command() {
-            Commands::INPUT => self.input(json_string).await,
-            Commands::OUTPUT => self.output(),
+            Commands::INPUT => self.input(stream, json_string).await,
+            Commands::RENAME => self.rename(stream, json_string).await,
             Commands::SETUP => self.setup(stream).await,
             Commands::EXIT => self.exit(),
             _ => self.error(),
@@ -117,7 +117,7 @@ impl Receiver {
     }
 
     // Takes the json data as an input and adds it to the display data
-    async fn input(&mut self, json_string: String) {
+    async fn input(&mut self, mut stream: TcpStream, json_string: String) {
         // Convert json_string to a Value
         let mut json: Value = match serde_json::from_str(json_string.as_str()) {
             Ok(val) => val,
@@ -135,11 +135,36 @@ impl Receiver {
         if device.device_id != "N/A" {
             // println!("INPUT RECEIVED:\n{}\n{}\n{}", get_divider(), device.to_string().blue().bold(), get_divider());
             
-            database::input_data(device, &self.database).await.ok();
+            database::input_data(&self.database, device).await.ok();
+
+            match stream.write_all("Data inserted".as_bytes()) {
+                Ok(v) => v,
+                _ => {}
+            };
+        }
+
+        match stream.write_all("Failed to insert data".as_bytes()) {
+            Ok(v) => v,
+            _ => {}
         }
     }
 
-    fn output(&mut self) {}
+    async fn rename(&mut self, mut stream: TcpStream, json_string: String) {
+        let json: Value = match serde_json::from_str(json_string.as_str()) {
+            Ok(v) => v,
+            Err(e) => {
+                eprintln!("Failed to parse JSON: {}", e);
+                return;
+            }
+        };
+
+        let device_id = json_handler::read_json_from_buf("deviceID", &json);
+        let device_name = json_handler::read_json_from_buf("deviceName", &json);
+
+        let result = database::rename_device(&self.database, device_id, device_name).await;
+
+        stream.write_all(result.as_bytes()).unwrap();
+    }
 
     fn error(&mut self) {
         eprintln!("Command not recognized!")

@@ -6,11 +6,14 @@ use rlsd::{
     constants::{self, get_client_config_path},
     input,
     json_handler::{self, write_json_from_value},
-    socket_handling::{self, data_receiver::Receiver},
-    stats_handling::{database::{self, get_all_device_uids, get_device_name_from_uid}, stats_loop
+    socket_handling::{self, command_type::Commands, data_receiver::Receiver, data_sender},
+    stats_handling::{
+        database::{self, get_all_device_uids, get_device_name_from_uid},
+        stats_loop,
     },
     tui,
 };
+use serde_json::json;
 
 #[tokio::main]
 async fn main() {
@@ -24,7 +27,26 @@ async fn main() {
 
     match vec_args.get(1).map_or("--help", |v| v) {
         // Help
-        "-h" | "--help" => {},
+        "-h" | "--help" => {
+            println!(
+"Welcome to RLSD help page!
+
+-h | --help => Prints this message
+
+-l | --list => Lists all device uids and their names in the db (run as the user that runs the server)
+
+--setup => Sets up the client config, used in the install script
+
+-c | --client => Runs rlsd in client or daemon mode to send data to the server
+
+-s | --server => Runs the rlsd server on 0.0.0.0:51347 and launches the TUI
+
+-r | --remove => Removes the supplied id from the db (use --list to get the id): rlsd --remove <ID>    
+
+--config => Configure the server address and device name of the client:
+    rlsd --config <name, server-addr> <value>"
+            )
+        },
         // List, lists all the uids and their friendly names
         "-l" | "--list" => {
             let ids = get_all_device_uids(&database).await;
@@ -48,13 +70,25 @@ async fn main() {
             match vec_args.get(2).map_or("", |v| v) {
                 "name" => {
                     match vec_args.get(3) {
-                        Some(v) => {
-                            json_handler::write_config("deviceName", v);
+                        Some(device_name) => {
+                            json_handler::write_client_config("deviceName", device_name);
+
+                            let device_id = json_handler::read_client_config_json("deviceID");
+
+                            let payload = json!({
+                                "deviceID": device_id,
+                                "deviceName": device_name
+                            });
+
+                            let msg = data_sender::send(Commands::RENAME, payload);
+
+                            println!("{msg}")
+
                         },
                         None => println!("Please supply the name of your device.")
                     }
                 },
-                "server-ip" => {
+                "server-addr" => {
                     match vec_args.get(3) {
                         Some(v) => {
                             let addr = if v.find(":").is_none() {
@@ -63,9 +97,9 @@ async fn main() {
                                 v.to_string()
                             };
 
-                            json_handler::write_config("serverAddr", addr)
+                            json_handler::write_client_config("serverAddr", addr)
                         },
-                        None => println!("Please supply the ip of your server machine")
+                        None => println!("Please supply the ip address of your server machine")
                     }
                 }
                 _ => println!("Invalid format, use the following: rlsd --config <setting> <value>\nPossibly settings: name, server-ip")
@@ -79,8 +113,6 @@ async fn main() {
                 let mut receiver = Receiver::new(db_clone);
                 receiver.start().await.unwrap();
             });
-
-
 
             tui::start_tui(&database).await.unwrap();
 

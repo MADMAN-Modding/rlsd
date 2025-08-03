@@ -45,13 +45,13 @@ pub async fn start_db() -> Pool<Sqlite> {
 /// Inserts data into the database
 ///
 /// # Arguments
-/// * `device: Device` - Struct to insert
 /// * `database: &Pool<Sqlite>` - Database to use to execute
+/// * `device: Device` - Struct to insert
 ///
 /// # Returns
 /// * `Ok()` - Insertion succeeds
 /// * `Err(sqlx::Error)` - Insertion fails
-pub async fn input_data(device: Device, database: &Pool<Sqlite>) -> Result<(), sqlx::Error> {
+pub async fn input_data(database: &Pool<Sqlite>, device: Device) -> Result<(), sqlx::Error> {
     sqlx::query(
         r#"
         INSERT INTO devices (device_id, device_name, ram_used, ram_total, cpu_usage, processes, network_in, network_out, time)
@@ -155,15 +155,59 @@ pub async fn get_device_stats_after(
 /// 
 /// # Arguments
 /// * `database: &Pool<Sqlite>` - Database to execute the query on
-/// * `device_id: String` - Device id to search for
-pub async fn remove_device(database: &Pool<Sqlite>, device_id: impl AsRef<str>) {
-    sqlx::query(
+/// * `device_id: impl AsRef<str>` - Device id to search for
+pub async fn remove_device(database: &Pool<Sqlite>, device_id: impl AsRef<str>) {    
+    let device_id = device_id.as_ref();
+    
+    match sqlx::query(
         r#"
         DELETE FROM devices WHERE device_id = ?1;
     "#,
     )
-    .bind(device_id.as_ref())
+    .bind(device_id)
     .execute(&*database)
     .await
-    .ok();
+    .ok() {
+        Some(v) => {
+            if v.rows_affected() == 0 {
+                println!("No rows found matching id: {device_id}")
+            } else {
+                println!("Removed {} rows for device {device_id}", v.rows_affected())
+            }
+        },
+        None => println!("Error removing device")
+    }
+}
+
+/// Changes the device_name of all rows matching the supplied device_id
+/// 
+/// # Arguments
+/// * `database: &Pool<Sqlite>` - Database to execute the query on
+/// * `device_id: impl AsRef<str>` - Device id to search for
+/// * `device_name: impl AsRef<str>` - Name to change the all the values to
+pub async fn rename_device(database: &Pool<Sqlite>, device_id: impl AsRef<str>, device_name: impl AsRef<str>) -> String {
+    let device_id = device_id.as_ref();
+    let device_name = device_name.as_ref();
+
+    match sqlx::query(
+        r#"
+        UPDATE devices
+        SET device_name = ?1
+        WHERE device_id = ?2
+        "#
+    )
+    .bind(device_name)
+    .bind(device_id)
+    .execute(&*database)
+    .await
+    .ok() {
+        Some(v) => {    
+            if v.rows_affected() == 0 {
+                format!("No rows found matching id: {device_id}")
+            } else {
+                format!("Changed device name for {device_id} to {device_name}\n{} rows affected", v.rows_affected())
+            }
+        },
+        None => "Error renaming device".to_string()
+    }
 }

@@ -3,7 +3,7 @@
 pub enum Commands {
     /// Add data to the current stats
     INPUT,
-    OUTPUT,
+    RENAME,
     SETUP,
     EXIT,
     ERROR,
@@ -13,7 +13,7 @@ impl Commands {
     pub fn to_string<'a>(self) -> &'a str {
         match self {
             Self::INPUT => "INPUT!",
-            Self::OUTPUT => "OUTPUT!",
+            Self::RENAME => "RENAME!",
             Self::SETUP => "SETUP!",
             Self::EXIT => "EXIT!",
             Self::ERROR => "ERROR!",
@@ -29,7 +29,7 @@ impl CommandTraits for String {
     fn to_command(&self) -> Commands {
         match self.replace("!", "").as_str() {
             "INPUT" => Commands::INPUT,
-            "OUTPUT" => Commands::OUTPUT,
+            "RENAME" => Commands::RENAME,
             "SETUP" => Commands::SETUP,
             "EXIT" => Commands::EXIT,
             _ => Commands::ERROR,
@@ -41,7 +41,7 @@ impl CommandTraits for str {
     fn to_command(&self) -> Commands {
         match self.replace("!", "").as_str() {
             "INPUT" => Commands::INPUT,
-            "OUTPUT" => Commands::OUTPUT,
+            "RENAME" => Commands::RENAME,
             "SETUP" => Commands::SETUP,
             "EXIT" => Commands::EXIT,
             _ => Commands::ERROR,
