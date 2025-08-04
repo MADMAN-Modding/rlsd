@@ -22,8 +22,7 @@ use std::{
 
 use crate::{
     constants::{
-        DOWN_SAMPLE_POINTS, DO_INTERPOLATION, INTERPOLATION_STEPS,
-        OUTLIER_THRESHOLD,
+        DOWN_SAMPLE_POINTS, DO_INTERPOLATION, INTERPOLATION_STEPS
     },
     stats_handling::{
         conversions::{format_bytes, format_time, get_byte_unit, get_time_unit, Unit},
@@ -554,7 +553,7 @@ fn interpolate(data: &[(f64, f64)], steps_per_segment: u16) -> Vec<(f64, f64)> {
     interpolated
 }
 
-fn remove_outliers(data: &[(f64, f64)], threshold: f64) -> Vec<(f64, f64)> {
+fn _remove_outliers(data: &[(f64, f64)], threshold: f64) -> Vec<(f64, f64)> {
     let ys: Vec<f64> = data.iter().map(|(_, y)| *y).collect();
 
     let mean = ys.iter().copied().sum::<f64>() / ys.len() as f64;
@@ -570,7 +569,7 @@ fn remove_outliers(data: &[(f64, f64)], threshold: f64) -> Vec<(f64, f64)> {
 }
 
 fn filter(data: &[(f64, f64)], do_interpolation: bool) -> Vec<(f64, f64)> {
-    let data = remove_outliers(&data, OUTLIER_THRESHOLD);
+    // let data = remove_outliers(&data, OUTLIER_THRESHOLD);
 
     let data = down_sample(&data, DOWN_SAMPLE_POINTS);
 

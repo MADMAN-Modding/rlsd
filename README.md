@@ -31,6 +31,27 @@ Run the following commands:
         # Remove the script
         rm rlsd-install.sh
 
+# Updating
+
+The script was built using Amber, please install the following package: <a href="https://archlinux.org/packages/extra/x86_64/bc/" target="_blank">`bc`</a>
+
+The script requires root access as it will place the binary in /usr/lib/rlsde
+
+Run the following commands:
+
+        # Downloads the script
+        curl -o rlsd-update.sh https://raw.githubusercontent.com/MADMAN-Modding/rlsd/refs/heads/master/install-scripts/linux/update.sh
+        
+        # Makes it executable
+        chmod +x rlsd-update.sh
+
+        # Run the script as root
+        sudo ./rlsd-update.sh
+
+        # Remove the script
+        rm rlsd-update.sh
+
+
 # Building
 
 <h3>Dependencies</h3>
