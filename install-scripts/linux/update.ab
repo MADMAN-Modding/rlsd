@@ -1,0 +1,77 @@
+import { file_download } from "std/http"
+import { file_chmod, file_chown, file_exists } from "std/fs"
+import { input_prompt, input_confirm, is_root } from "std/env"
+import { parse_number } from "std/text"
+
+let server_url = "https://raw.githubusercontent.com/MADMAN-Modding/rlsd/refs/heads/master"
+
+const RED = "\e[31m"
+const GREEN = "\e[32m"
+const BLUE = "\e[34m"
+const RESET = "\e[0m"
+
+let architectures = ["x86_64", "musl", "armv7", "aarch64"]
+
+fun echo_color(text: Text, color: Text): Null {
+    // I'm not sure why but I need to do the reset on a separate concatenation
+    let text = "{color}{text}"
+
+    trust $ echo -e "{text}{RESET}"$
+}
+
+fun download_rlsd(version: Text): Bool {
+    echo_color("Installing rlsd...", BLUE)
+
+    if file_exists("/usr/bin/rlsd") {
+        trust $ sudo rm -f /usr/bin/rlsd $
+    }
+
+    let download_result = file_download("{server_url}/bin/linux/{version}", "/usr/bin/rlsd")
+
+    let chmod_result = file_chmod("/usr/bin/rlsd", "+x")
+
+    return download_result and chmod_result
+}
+
+/// Runs the setup script
+fun setup(): Bool? {
+    let prompt = "Please choose one of the following architectures:\n"
+
+    for i, arch in architectures {
+        prompt += "{i+1}) {arch}\n"
+    }
+
+    // This gets the user-input as a number
+    let choice = input_prompt(prompt)
+
+    let choice = parse_number(choice)?
+
+    if (choice == 0 or choice > len(architectures)) {
+        echo_color("Invalid choice", RED)
+        fail 1
+    }
+
+    let architecture = architectures[choice-1]
+
+    echo_color("{architecture} selected", BLUE)
+
+    // Downloads the selected binary
+    if download_rlsd("rlsd-{architecture}") {echo_color("Install Succeeded", GREEN)}
+    else {echo_color("Install Failed, check the above error message", RED) fail}
+
+    return true
+}
+
+main(args) { 
+    // Checks if the user is root
+    if is_root() {
+        echo_color("Root check passed", GREEN)
+
+        let result = trust setup()
+
+        if result: echo_color("Setup Finished", GREEN)
+        else: echo_color("Setup Failed", RED)
+    } else {
+        echo_color("Root check failed; please run as root", RED)
+    }
+}
