@@ -21,14 +21,13 @@ use std::{
 };
 
 use crate::stats_handling::{
-    conversions::{format_bytes, get_unit, Unit},
+    conversions::{format_bytes, format_time, get_byte_unit, get_time_unit, Unit},
     database::{self, get_device_stats_after},
     device_info::Device,
 };
 
 #[derive(Clone, Copy)]
 enum TimeRange {
-    Last30Min,
     Last1Hour,
     Last1Day,
     Last1Week,
@@ -36,17 +35,21 @@ enum TimeRange {
     Last1Year,
 }
 
+const DOWN_SAMPLE_POINTS: u16 = 40;
+const OUTLIER_THRESHOLD: f64 = 1.0;
+const DO_INTERPOLATION: bool = true;
+const INTERPOLATION_STEPS: u16 = 2;
+
 impl TimeRange {
     fn all() -> Vec<TimeRange> {
         use TimeRange::*;
         vec![
-            Last30Min, Last1Hour, Last1Day, Last1Week, Last1Month, Last1Year,
+            Last1Hour, Last1Day, Last1Week, Last1Month, Last1Year,
         ]
     }
 
     fn as_str(&self) -> &'static str {
         match self {
-            TimeRange::Last30Min => "30 min",
             TimeRange::Last1Hour => "1 hour",
             TimeRange::Last1Day => "1 day",
             TimeRange::Last1Week => "1 week",
@@ -57,7 +60,6 @@ impl TimeRange {
 
     fn duration_secs(&self) -> i64 {
         match self {
-            TimeRange::Last30Min => 30 * 60,
             TimeRange::Last1Hour => 60 * 60,
             TimeRange::Last1Day => 24 * 60 * 60,
             TimeRange::Last1Week => 7 * 24 * 60 * 60,
@@ -126,15 +128,17 @@ impl App {
     }
 
     fn detail_chart<'a>(&self, chart: Chart<'a>, unit: Unit, time: i64, limit: f64) -> Chart<'a> {
+        let time = time as u128;
+ 
         chart
             .x_axis(
                 Axis::default()
                     .title("Time")
                     .bounds([0.0, time as f64])
                     .labels(vec![
-                        Span::raw(format!("{}s", time)),
-                        Span::raw(format!("{}s", time / 2)),
-                        Span::raw(format!("{}s", 0)),
+                        Span::raw(format!("{:.1} {}", format_time(time, Unit::SECOND), get_time_unit(time, Unit::SECOND))),
+                        Span::raw(format!("{:.1} {}", format_time(time / 2, Unit::SECOND), get_time_unit(time / 2, Unit::SECOND))),
+                        Span::raw(format!("{} {}", format_time(0, Unit::SECOND), get_time_unit(0, Unit::SECOND))),
                     ])
                     .style(Style::default().fg(Color::Gray)),
             )
@@ -143,7 +147,9 @@ impl App {
                     .bounds([0.0, limit])
                     .labels(vec![
                         Span::raw(format!("0{unit}")),
-                        Span::raw(format!("{:.2}{unit}", limit / 2.0)),
+                        Span::raw(format!("{:.2}{unit}", limit * 0.25)),
+                        Span::raw(format!("{:.2}{unit}", limit * 0.5)),
+                        Span::raw(format!("{:.2}{unit}", limit * 0.75)),
                         Span::raw(format!("{:.2}{unit}", limit)),
                     ])
                     .style(Style::default().fg(Color::Gray)),
@@ -261,17 +267,22 @@ pub async fn start_tui(database: &Pool<Sqlite>) -> Result<(), Box<dyn std::error
                     let duration = app.selected_time_range().duration_secs();
 
                     // CPU Chart
-                    let cpu_total = filtered
-                        .iter()
-                        .map(|d| d.cpu_usage as f64)
-                        .max_by(|a, b| a.partial_cmp(b).unwrap_or(Ordering::Equal))
-                        .unwrap_or(100.0);
+                    let mut cpu_total: f64 = 0.0;
+                    
+                    for d in cpu_data {
+                        if d.1 > cpu_total {
+                            cpu_total = d.1
+                        }
+                    }
+
+                    // let cpu_data = down_sample(&interpolate(&cpu_data, 4), 10);             
+                    let cpu_data = down_sample(&cpu_data, 40);
 
                     let cpu_chart = app.make_chart(
                         &cpu_data,
                         Unit::Percentage,
                         duration,
-                        cpu_total * 100.0,
+                        cpu_total,
                         "CPU",
                         Color::Green,
                     );
@@ -288,7 +299,7 @@ pub async fn start_tui(database: &Pool<Sqlite>) -> Result<(), Box<dyn std::error
                         .unwrap_or(0.0);
 
                     // Makes RAM the chart
-                    let ram_unit = get_unit(ram_total as usize, Unit::BYTE);
+                    let ram_unit = get_byte_unit(ram_total as usize, Unit::BYTE);
 
                     let ram_chart = app.make_chart(
                         &ram_data,
@@ -308,7 +319,7 @@ pub async fn start_tui(database: &Pool<Sqlite>) -> Result<(), Box<dyn std::error
                         .max_by(|a, b| a.partial_cmp(b).unwrap_or(Ordering::Equal))
                         .unwrap_or(0.0);
 
-                    let network_in_unit = get_unit(network_in_max as usize, Unit::BYTE);
+                    let network_in_unit = get_byte_unit(network_in_max as usize, Unit::BYTE);
 
                     let network_out_max = filtered
                         .iter()
@@ -316,7 +327,7 @@ pub async fn start_tui(database: &Pool<Sqlite>) -> Result<(), Box<dyn std::error
                         .max_by(|a, b| a.partial_cmp(b).unwrap_or(Ordering::Equal))
                         .unwrap_or(0.0);
 
-                    let network_out_unit = get_unit(network_out_max as usize, Unit::BYTE);
+                    let network_out_unit = get_byte_unit(network_out_max as usize, Unit::BYTE);
 
                     let (network_max, network_unit): (f64, Unit) =
                         if network_in_max > network_out_max {
@@ -432,7 +443,7 @@ fn device_bubble_sort(device_names: &mut Vec<String>, device_ids: &mut Vec<Strin
     }
 }
 
-fn make_dataset(time_min: i64, data: &Vec<Device>) -> Vec<Vec<(f64, f64)>> {
+pub fn make_dataset(time_min: i64, data: &Vec<Device>) -> Vec<Vec<(f64, f64)>> {
     let filtered: Vec<_> = data.iter().filter(|d| d.time >= time_min).collect();
 
     let mut datasets: Vec<Vec<(f64, f64)>> = vec![Vec::new(), Vec::new(), Vec::new(), Vec::new()];
@@ -477,10 +488,76 @@ fn make_dataset(time_min: i64, data: &Vec<Device>) -> Vec<Vec<(f64, f64)>> {
         })
         .collect();
 
-    datasets[0] = cpu_data;
-    datasets[1] = ram_data;
-    datasets[2] = network_in_data;
-    datasets[3] = network_out_data;
+    datasets[0] = filter(&cpu_data, DO_INTERPOLATION);
+    datasets[1] = filter(&ram_data, DO_INTERPOLATION);
+    datasets[2] = filter(&network_in_data, DO_INTERPOLATION);
+    datasets[3] = filter(&network_out_data, DO_INTERPOLATION);
 
     datasets
+}
+
+fn down_sample(data: &[(f64, f64)], target_points: u16) -> Vec<(f64, f64)> {
+    if target_points == 0 || data.is_empty() {
+        return vec![];
+    }
+
+    let chunk_size = (data.len() as f64 / target_points as f64).ceil() as usize;
+
+    data.chunks(chunk_size)
+        .map(|chunk| {
+            let avg_x = chunk.iter().map(|(x, _)| x).sum::<f64>() / chunk.len() as f64;
+            let avg_y = chunk.iter().map(|(_, y)| y).sum::<f64>() / chunk.len() as f64;
+            (avg_x, avg_y)
+        })
+        .collect()
+}
+
+fn interpolate(data: &[(f64, f64)], steps_per_segment: u16) -> Vec<(f64, f64)> {
+    let mut interpolated = Vec::new();
+
+    for window in data.windows(2) {
+        let (x0, y0) = window[0];
+        let (x1, y1) = window[1];
+
+        for step in 0..steps_per_segment {
+            let t = step as f64 / steps_per_segment as f64;
+            let x = x0 + t * (x1 - x0);
+            let y = y0 + t * (y1 - y0);
+            interpolated.push((x, y));
+        }
+    }
+
+    // Optionally push the last point
+    if let Some(&last) = data.last() {
+        interpolated.push(last);
+    }
+
+    interpolated
+}
+
+fn remove_outliers(data: &[(f64, f64)], threshold: f64) -> Vec<(f64, f64)> {
+    let ys: Vec<f64> = data.iter().map(|(_, y)| *y).collect();
+
+    let mean = ys.iter().copied().sum::<f64>() / ys.len() as f64;
+    let std_dev = (ys.iter().map(|y| (y - mean).powi(2)).sum::<f64>() / ys.len() as f64).sqrt();
+
+    data.iter()
+        .copied()
+        .filter(|(_, y)| {
+            let z = (y - mean).abs() / std_dev;
+            z <= threshold
+        })
+        .collect()
+}
+
+fn filter(data: &[(f64, f64)], do_interpolation: bool) -> Vec<(f64, f64)> {
+    let data = remove_outliers(&data, OUTLIER_THRESHOLD);
+    
+    let data = down_sample(&data, DOWN_SAMPLE_POINTS);
+
+    if do_interpolation {
+        interpolate(&data, INTERPOLATION_STEPS)
+    } else {
+        data
+    }
 }
