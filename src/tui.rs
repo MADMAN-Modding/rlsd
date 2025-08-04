@@ -20,10 +20,16 @@ use std::{
     time::{Duration, Instant},
 };
 
-use crate::stats_handling::{
-    conversions::{format_bytes, format_time, get_byte_unit, get_time_unit, Unit},
-    database::{self, get_device_stats_after},
-    device_info::Device,
+use crate::{
+    constants::{
+        DOWN_SAMPLE_POINTS, DO_INTERPOLATION, INTERPOLATION_STEPS,
+        OUTLIER_THRESHOLD,
+    },
+    stats_handling::{
+        conversions::{format_bytes, format_time, get_byte_unit, get_time_unit, Unit},
+        database::{self, get_device_stats_after},
+        device_info::Device,
+    },
 };
 
 #[derive(Clone, Copy)]
@@ -35,17 +41,10 @@ enum TimeRange {
     Last1Year,
 }
 
-const DOWN_SAMPLE_POINTS: u16 = 40;
-const OUTLIER_THRESHOLD: f64 = 1.0;
-const DO_INTERPOLATION: bool = true;
-const INTERPOLATION_STEPS: u16 = 2;
-
 impl TimeRange {
     fn all() -> Vec<TimeRange> {
         use TimeRange::*;
-        vec![
-            Last1Hour, Last1Day, Last1Week, Last1Month, Last1Year,
-        ]
+        vec![Last1Hour, Last1Day, Last1Week, Last1Month, Last1Year]
     }
 
     fn as_str(&self) -> &'static str {
@@ -105,7 +104,8 @@ impl App {
         data: &'a [(f64, f64)],
         unit: Unit,
         time: i64,
-        limit: f64,
+        min: f64,
+        max: f64,
         title: &'a str,
         color: Color,
     ) -> Chart<'a> {
@@ -122,35 +122,47 @@ impl App {
                 .borders(Borders::ALL),
         );
 
-        chart = self.detail_chart(chart, unit, time, limit);
+        chart = self.detail_chart(chart, unit, time, min, max);
 
         chart
     }
 
-    fn detail_chart<'a>(&self, chart: Chart<'a>, unit: Unit, time: i64, limit: f64) -> Chart<'a> {
+    fn detail_chart<'a>(&self, chart: Chart<'a>, unit: Unit, time: i64, min: f64, max: f64) -> Chart<'a> {
         let time = time as u128;
- 
+
         chart
             .x_axis(
                 Axis::default()
                     .title("Time")
                     .bounds([0.0, time as f64])
                     .labels(vec![
-                        Span::raw(format!("{:.1} {}", format_time(time, Unit::SECOND), get_time_unit(time, Unit::SECOND))),
-                        Span::raw(format!("{:.1} {}", format_time(time / 2, Unit::SECOND), get_time_unit(time / 2, Unit::SECOND))),
-                        Span::raw(format!("{} {}", format_time(0, Unit::SECOND), get_time_unit(0, Unit::SECOND))),
+                        Span::raw(format!(
+                            "{:.1} {}",
+                            format_time(time, Unit::SECOND),
+                            get_time_unit(time, Unit::SECOND)
+                        )),
+                        Span::raw(format!(
+                            "{:.1} {}",
+                            format_time(time / 2, Unit::SECOND),
+                            get_time_unit(time / 2, Unit::SECOND)
+                        )),
+                        Span::raw(format!(
+                            "{} {}",
+                            format_time(0, Unit::SECOND),
+                            get_time_unit(0, Unit::SECOND)
+                        )),
                     ])
                     .style(Style::default().fg(Color::Gray)),
             )
             .y_axis(
                 Axis::default()
-                    .bounds([0.0, limit])
+                    .bounds([min, max])
                     .labels(vec![
-                        Span::raw(format!("0{unit}")),
-                        Span::raw(format!("{:.2}{unit}", limit * 0.25)),
-                        Span::raw(format!("{:.2}{unit}", limit * 0.5)),
-                        Span::raw(format!("{:.2}{unit}", limit * 0.75)),
-                        Span::raw(format!("{:.2}{unit}", limit)),
+                        Span::raw(format!("{:.2}{unit}", min)),
+                        Span::raw(format!("{:.2}{unit}", (max-min) * 0.25 + min)),
+                        Span::raw(format!("{:.2}{unit}", (max-min) * 0.5 + min)),
+                        Span::raw(format!("{:.2}{unit}", (max-min) * 0.75 + min)),
+                        Span::raw(format!("{:.2}{unit}", max)),
                     ])
                     .style(Style::default().fg(Color::Gray)),
             )
@@ -244,7 +256,7 @@ pub async fn start_tui(database: &Pool<Sqlite>) -> Result<(), Box<dyn std::error
                 if let Some(data) = app.metrics_cache.get(device_id) {
                     let now = chrono::Utc::now().timestamp();
                     let time_min = now - app.selected_time_range().duration_secs();
-                    let filtered: Vec<_> = data.iter().filter(|d| d.time >= time_min).collect();
+                    let unfiltered_data: Vec<_> = data.iter().filter(|d| d.time >= time_min).collect();
 
                     let graph_chunks = Layout::default()
                         .direction(Direction::Vertical)
@@ -266,23 +278,17 @@ pub async fn start_tui(database: &Pool<Sqlite>) -> Result<(), Box<dyn std::error
 
                     let duration = app.selected_time_range().duration_secs();
 
-                    // CPU Chart
-                    let mut cpu_total: f64 = 0.0;
-                    
-                    for d in cpu_data {
-                        if d.1 > cpu_total {
-                            cpu_total = d.1
-                        }
-                    }
+                    let (cpu_min, cpu_max) = find_min_max(&cpu_data);
 
-                    // let cpu_data = down_sample(&interpolate(&cpu_data, 4), 10);             
+                    // let cpu_data = down_sample(&interpolate(&cpu_data, 4), 10);
                     let cpu_data = down_sample(&cpu_data, 40);
 
                     let cpu_chart = app.make_chart(
                         &cpu_data,
                         Unit::Percentage,
                         duration,
-                        cpu_total,
+                        cpu_min,
+                        cpu_max,
                         "CPU",
                         Color::Green,
                     );
@@ -292,20 +298,23 @@ pub async fn start_tui(database: &Pool<Sqlite>) -> Result<(), Box<dyn std::error
                     // RAM Chart
 
                     // Gets the largest value from the vector
-                    let ram_total = filtered
-                        .iter()
-                        .map(|d| d.ram_used as f64)
-                        .max_by(|a, b| a.partial_cmp(b).unwrap_or(Ordering::Equal))
-                        .unwrap_or(0.0);
-
+                    let (ram_min, ram_max) = find_min_max(&ram_data); 
                     // Makes RAM the chart
-                    let ram_unit = get_byte_unit(ram_total as usize, Unit::BYTE);
+                    let ram_unit = get_byte_unit(
+                        unfiltered_data
+                            .iter()
+                            .map(|d| d.ram_used)
+                            .max_by(|a, b| a.partial_cmp(b).unwrap_or(Ordering::Equal))
+                            .unwrap_or(0) as usize,
+                        Unit::BYTE,
+                    );
 
                     let ram_chart = app.make_chart(
                         &ram_data,
                         ram_unit.clone(),
                         duration,
-                        ram_total / ram_unit.to_f64(),
+                        ram_min,
+                        ram_max,
                         "RAM",
                         Color::Red,
                     );
@@ -313,28 +322,37 @@ pub async fn start_tui(database: &Pool<Sqlite>) -> Result<(), Box<dyn std::error
                     f.render_widget(ram_chart, graph_chunks[1]);
 
                     // Network Chart
-                    let network_in_max = filtered
-                        .iter()
-                        .map(|d| d.network_in as f64)
-                        .max_by(|a, b| a.partial_cmp(b).unwrap_or(Ordering::Equal))
-                        .unwrap_or(0.0);
+                    let (network_in_min, network_in_max) = find_min_max(&network_in_data);
 
-                    let network_in_unit = get_byte_unit(network_in_max as usize, Unit::BYTE);
+                    // Get the network in max from the unfiltered data
+                    let network_in_unit = get_byte_unit(
+                        unfiltered_data
+                            .iter()
+                            .map(|d| d.network_in)
+                            .max_by(|a, b| a.partial_cmp(b).unwrap_or(Ordering::Equal))
+                            .unwrap_or(0) as usize,
+                        Unit::BYTE);
 
-                    let network_out_max = filtered
-                        .iter()
-                        .map(|d| d.network_out as f64)
-                        .max_by(|a, b| a.partial_cmp(b).unwrap_or(Ordering::Equal))
-                        .unwrap_or(0.0);
+                    let (network_out_min, network_out_max) = find_min_max(&network_out_data);
 
-                    let network_out_unit = get_byte_unit(network_out_max as usize, Unit::BYTE);
+                    // Get the network out max from the unfiltered data
+                    let network_out_unit = get_byte_unit(
+                        unfiltered_data
+                            .iter()
+                            .map(|d| d.network_out)
+                            .max_by(|a, b| a.partial_cmp(b).unwrap_or(Ordering::Equal))
+                            .unwrap_or(0) as usize,
+                        Unit::BYTE);
 
-                    let (network_max, network_unit): (f64, Unit) =
+                    let (network_min, network_max, network_unit): (f64, f64, Unit) = {
+                        let min = network_in_min.min(network_out_min);
+
                         if network_in_max > network_out_max {
-                            (network_in_max, network_in_unit)
+                            (min, network_in_max, network_in_unit)
                         } else {
-                            (network_out_max, network_out_unit)
-                        };
+                            (min, network_out_max, network_out_unit)
+                        }
+                    };
 
                     let mut network_chart = Chart::new(vec![
                         Dataset::default()
@@ -363,7 +381,8 @@ pub async fn start_tui(database: &Pool<Sqlite>) -> Result<(), Box<dyn std::error
                         network_chart,
                         network_unit.clone(),
                         duration,
-                        network_max / network_unit.to_f64(),
+                        network_min,
+                        network_max,
                     );
 
                     f.render_widget(network_chart, graph_chunks[2]);
@@ -552,7 +571,7 @@ fn remove_outliers(data: &[(f64, f64)], threshold: f64) -> Vec<(f64, f64)> {
 
 fn filter(data: &[(f64, f64)], do_interpolation: bool) -> Vec<(f64, f64)> {
     let data = remove_outliers(&data, OUTLIER_THRESHOLD);
-    
+
     let data = down_sample(&data, DOWN_SAMPLE_POINTS);
 
     if do_interpolation {
@@ -560,4 +579,28 @@ fn filter(data: &[(f64, f64)], do_interpolation: bool) -> Vec<(f64, f64)> {
     } else {
         data
     }
+}
+
+fn find_min_max(data: &[(f64, f64)]) -> (f64, f64) {
+    if data.is_empty() {
+        return (0.0, 0.0);
+    }
+
+
+    let mut min: f64 = f64::MAX;
+    // f64::MIN isn't used here as it leads to that value being shown when do data is present
+    let mut max: f64 = 0.0;
+
+    for d in data {
+        if d.1 != 0.0 {
+            min = min.min(d.1)
+        }
+    }
+
+    for d in data {
+        max = max.max(d.1)
+    }
+
+
+    (min, max)
 }
