@@ -30,7 +30,7 @@ impl Client {
         }
     }
 
-    /// Convert a `Client` instance to a JSON `Value`
+    /// Convert a `Client` instance to a `Value` instance
     pub fn to_json(&self) -> Value {
         json!({
             "deviceID"  : self.device_id,
@@ -44,20 +44,6 @@ impl Client {
         format!(
             "Device ID: {}\nDevice Name: {}\nServer Address: {}",
             self.device_id, self.device_name, self.server_addr
-        )
-    }
-}
-
-impl ToClient for serde_json::Value {
-    /// Converts a JSON `Value` to a `Client` instance
-    ///
-    /// # Returns
-    /// * A `Client` instance created from the JSON `Value`
-    fn to_client(&self) -> Client {
-        Client::new(
-            self["deviceID"].as_str().unwrap_or_default().to_string(),
-            self["deviceName"].as_str().unwrap_or_default().to_string(),
-            self["serverAddr"].as_str().unwrap_or_default().to_string(),
         )
     }
 }

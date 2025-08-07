@@ -7,7 +7,11 @@ use std::{
 
 use serde_json::{json, Value};
 
-use crate::{config::client::Client, constants, stats_handling::device_info::Device};
+use crate::{
+    config::{client::Client, server::Server},
+    constants::{self, get_client_config_path, get_server_config_path},
+    stats_handling::device_info::Device,
+};
 
 /// Reads the config json and returns the value of the requested key
 ///
@@ -101,7 +105,7 @@ pub fn init_json(path: &str) -> Value {
     let _ = std::fs::create_dir_all(Path::new(&path).parent().unwrap());
 
     // Initializes the json_data variable
-    let json_data: Value = get_default_json_data();
+    let json_data: Value = get_default_client_json_data();
 
     // Creating the JSON file
     fs::write(
@@ -168,20 +172,24 @@ pub fn write_json(path: &str, json_key: &str, mut value: String) {
 
 /// Write to a file from a JSON value
 pub fn write_json_from_value(path: &str, json: Value) {
-    fs::write(path, serde_json::to_string_pretty(&json).expect("Error serializing to json")).expect("Failed to write to file.");
+    fs::write(
+        path,
+        serde_json::to_string_pretty(&json).expect("Error serializing to json"),
+    )
+    .expect("Failed to write to file.");
 }
 
 /// Recursively reads a JSON value and writes a new value to the specified key path.
 /// No IO means it won't write to file system
-/// 
+///
 /// # Parameters
 /// * `json` - The JSON value to be modified.
 /// * `keys` - A dot-separated string path specifying the keys/indexes to traverse. Array indices should be wrapped in square brackets, `arrayKey[0].nestedKey`.
 /// * `value` - The new value to write at the final key.
-/// 
+///
 /// # Returns
 /// * `Value` - The modified JSON with the new value inserted.
-/// 
+///
 /// # Example
 /// ```ignore
 /// use serde_json::{json, Value};
@@ -194,48 +202,57 @@ pub fn write_json_from_value(path: &str, json: Value) {
 ///
 /// assert_eq!(new_json, json!({"key": [{"nestedKey": "newValue"}]}));
 /// ```
-pub fn write_nested_json_no_io(mut json : Value, keys: String, value: Value) -> Value {
+pub fn write_nested_json_no_io(mut json: Value, keys: String, value: Value) -> Value {
     // Makes the key variable to keep track of characters
     let mut key = String::new();
 
     // Iterates through every char while keeping track of the index
-    for (i , char) in keys.chars().enumerate() {
+    for (i, char) in keys.chars().enumerate() {
         match char {
             // If char is a '.', set json[key] equal to the next nested key
             '.' => {
-                json[key] = write_nested_json_no_io(json[&key].clone(), keys.clone().split_at(i + 1).1.to_owned(), value);
+                json[key] = write_nested_json_no_io(
+                    json[&key].clone(),
+                    keys.clone().split_at(i + 1).1.to_owned(),
+                    value,
+                );
                 break;
-            },
+            }
             // If char is a '['
             '[' => {
                 // Get the char from the string as a usize
                 let mut key = String::new();
-                
-                for char in keys.get(i..).unwrap().chars() {    
-                        if char != ']' {
-                            key.push(char);
-                        } else if char == ']' {
-                            break;
-                        }
+
+                for char in keys.get(i..).unwrap().chars() {
+                    if char != ']' {
+                        key.push(char);
+                    } else if char == ']' {
+                        break;
+                    }
                 }
 
-                let i_key = keys.get(i+1..i+2).unwrap().parse::<usize>().unwrap();
-                
+                let i_key = keys.get(i + 1..i + 2).unwrap().parse::<usize>().unwrap();
 
                 // If the key doesn't exist, push the value and set the json equal to the new Vec
-                if json.as_array().unwrap().len() == 0 || json.as_array().unwrap().len() - 1 < i_key {
+                if json.as_array().unwrap().len() == 0 || json.as_array().unwrap().len() - 1 < i_key
+                {
                     let mut json_vec = json.as_array().unwrap().to_owned();
 
                     json_vec.push(value);
 
                     json = Value::Array(json_vec);
-                } else { // If the key exists, set it equal to the next nested value
-                    json[i_key] = write_nested_json_no_io(json[i_key].clone(), keys.clone().split_at(i + 3).1.to_owned(), value);
+                } else {
+                    // If the key exists, set it equal to the next nested value
+                    json[i_key] = write_nested_json_no_io(
+                        json[i_key].clone(),
+                        keys.clone().split_at(i + 3).1.to_owned(),
+                        value,
+                    );
                 }
-                
+
                 // Escape the loop
                 break;
-            },
+            }
             // If char is a ']' do nothing
             ']' => (),
             // If char is anything else, add it to the key
@@ -244,10 +261,11 @@ pub fn write_nested_json_no_io(mut json : Value, keys: String, value: Value) -> 
 
         // If i is the last character, or if the next character is ']' and i is the second to last character
         // Write the inputted value to the json
-        if i == keys.len() - 1 || (keys.get(i..i+1).unwrap() == "]".to_string() && i == keys.len() - 2){
+        if i == keys.len() - 1
+            || (keys.get(i..i + 1).unwrap() == "]".to_string() && i == keys.len() - 2)
+        {
             json[key.clone()] = value.clone();
         }
-  
     }
 
     // Returns the json object
@@ -255,10 +273,10 @@ pub fn write_nested_json_no_io(mut json : Value, keys: String, value: Value) -> 
 }
 
 /// Writes to the config json
-/// 
+///
 /// # Parameters
 /// `json_key: &str` - Key to write to
-/// `value : &str` - Value to write to the key 
+/// `value : &str` - Value to write to the key
 pub fn write_client_config<T: ToString>(json_key: &str, value: T) {
     write_json(
         &constants::get_client_config_path(),
@@ -294,11 +312,11 @@ pub fn iterate_json(json_key: &str, json: &Value) -> Vec<String> {
 }
 
 /// Iterates over a json object
-/// 
+///
 /// # Parameters
 /// * `json_key` : &str` - Key to search for
 /// * `json : &Value` - Reference to json object to be searched
-/// 
+///
 /// # Returns
 /// `Vec<String>` Contains all the found values
 fn iterate_json_map(json_key: &str, json: &Value) -> Vec<String> {
@@ -319,10 +337,10 @@ fn iterate_json_map(json_key: &str, json: &Value) -> Vec<String> {
 }
 
 /// Counts the length of a json object
-/// 
+///
 /// # Parameters
 /// * `json : &Value` - JSON to be searched
-/// 
+///
 /// # Returns
 /// * `u32` The length of the json
 pub fn get_json_length(json: &Value) -> u32 {
@@ -343,19 +361,22 @@ pub fn get_json_length(json: &Value) -> u32 {
     size
 }
 
-/// Resets the config
-pub fn reset_config() {
-    let default_json = get_default_json_data();
-    for key in default_json.as_object().unwrap() {
-        // If the key is a string, it will write the key and value to the config file
-        let value = key.1.to_string().replace("\"", "");
-
-        write_client_config(key.0, value.as_str());
-    }
+/// Resets the client config
+pub fn reset_client_config() {
+    let default_json = get_default_client_json_data();
+    
+    write_json_from_value(&get_client_config_path(), default_json);
 }
 
-/// Default settings for the config
-fn get_default_json_data() -> Value {
+/// Resets the server config
+pub fn reset_server_config() {
+    let default_json = get_default_server_json_data();
+    
+    write_json_from_value(&get_server_config_path(), default_json);
+}
+
+/// Default settings for the client config
+fn get_default_client_json_data() -> Value {
     json!({
         "deviceID": "N/A",
         "serverAddr": "127.0.0.1:51347",
@@ -363,12 +384,21 @@ fn get_default_json_data() -> Value {
     })
 }
 
+/// Default settings for the server config
+fn get_default_server_json_data() -> Value {
+    json!({
+        "registeredDeviceIDs": [],
+        "adminIDs": [],
+        "firstRun": true
+    })
+}
+
 pub trait ToDevice {
     /// Converts a JSON value to a `Device` instance.
-    /// 
+    ///
     /// # Arguments
     /// * `value` - The JSON value to convert.
-    /// 
+    ///
     /// # Returns
     /// A `Device` instance created from the JSON value.
     fn to_device(&self) -> Device;
@@ -376,4 +406,35 @@ pub trait ToDevice {
 
 pub trait ToClient {
     fn to_client(&self) -> Client;
+}
+
+impl ToClient for serde_json::Value {
+    /// Converts a JSON `Value` to a `Client` instance
+    ///
+    /// # Returns
+    /// * A `Client` instance created from the JSON `Value`
+    fn to_client(&self) -> Client {
+        Client::new(
+            self["deviceID"].as_str().unwrap_or_default().to_string(),
+            self["deviceName"].as_str().unwrap_or_default().to_string(),
+            self["serverAddr"].as_str().unwrap_or_default().to_string(),
+        )
+    }
+}
+
+pub trait ToServer {
+    fn to_sever(&self) -> Server;
+}
+
+impl ToServer for serde_json::Value {
+    fn to_sever(&self) -> Server {
+        let registered_device_ids: Vec<String> = self["registeredDeviceIDs"].as_array().unwrap().iter().map(|v| v.as_str().unwrap_or_default().to_string()).collect();
+        let admin_ids: Vec<String> = self["adminIDS"].as_array().unwrap().iter().map(|v| v.as_str().unwrap_or_default().to_string()).collect();
+
+        Server::new(
+            registered_device_ids,
+            admin_ids,
+            self["firstRun"].as_bool().unwrap_or(false),
+        )
+    }
 }

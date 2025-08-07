@@ -12,7 +12,7 @@ use crate::{json_handler::read_client_config_json, socket_handling::command_type
 pub fn send(command: Commands, data: Value) -> String {
     let server_addr = read_client_config_json("serverAddr");
 
-    let mut connection = match connect(server_addr) {
+    let mut connection = match connect(&server_addr) {
         Ok(c) => c,
         Err(e) => {eprintln!("{e}"); return "Error connecting...".to_string()}
     };
@@ -66,8 +66,8 @@ pub fn setup(server_addr: &str) -> String {
     device_id
 }
 
-pub fn connect(server_addr: impl AsRef<str>) -> Result<TcpStream, String> {    
-    match TcpStream::connect(format!("{}", server_addr.as_ref())) {
+pub fn connect(server_addr: &str) -> Result<TcpStream, String> {    
+    match TcpStream::connect(format!("{}", server_addr)) {
         Ok(c) => Ok(c),
         Err(e) => {
             eprintln!("{e}");

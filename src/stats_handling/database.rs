@@ -118,10 +118,10 @@ pub async fn get_all_device_uids(database: &Pool<Sqlite>) -> HashSet<String> {
 
 pub async fn get_device_name_from_uid(
     database: &Pool<Sqlite>,
-    device_id: impl AsRef<str>,
+    device_id: &str,
 ) -> String {
     let row = sqlx::query("SELECT device_name FROM devices WHERE device_id = ?1")
-        .bind(device_id.as_ref())
+        .bind(device_id)
         .fetch_one(&*database)
         .await
         .expect("Name not found");
@@ -155,9 +155,8 @@ pub async fn get_device_stats_after(
 /// 
 /// # Arguments
 /// * `database: &Pool<Sqlite>` - Database to execute the query on
-/// * `device_id: impl AsRef<str>` - Device id to search for
-pub async fn remove_device(database: &Pool<Sqlite>, device_id: impl AsRef<str>) {    
-    let device_id = device_id.as_ref();
+/// * `device_id: &str` - Device id to search for
+pub async fn remove_device(database: &Pool<Sqlite>, device_id: &str) {    
     
     match sqlx::query(
         r#"
@@ -183,12 +182,9 @@ pub async fn remove_device(database: &Pool<Sqlite>, device_id: impl AsRef<str>) 
 /// 
 /// # Arguments
 /// * `database: &Pool<Sqlite>` - Database to execute the query on
-/// * `device_id: impl AsRef<str>` - Device id to search for
-/// * `device_name: impl AsRef<str>` - Name to change the all the values to
-pub async fn rename_device(database: &Pool<Sqlite>, device_id: impl AsRef<str>, device_name: impl AsRef<str>) -> String {
-    let device_id = device_id.as_ref();
-    let device_name = device_name.as_ref();
-
+/// * `device_id: &str` - Device id to search for
+/// * `device_name: &str` - Name to change the all the values to
+pub async fn rename_device(database: &Pool<Sqlite>, device_id: &str, device_name: &str) -> String {
     match sqlx::query(
         r#"
         UPDATE devices

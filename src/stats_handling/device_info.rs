@@ -46,8 +46,8 @@ impl Device {
     ///
     /// A new `Device` instance initialized with the specified values.
     pub fn new(
-        device_id: impl AsRef<str>,
-        device_name: impl AsRef<str>,
+        device_id: &str,
+        device_name: &str,
         ram_used: i64,
         ram_total: i64,
         cpu_usage: f32,
@@ -57,8 +57,8 @@ impl Device {
         time: i64,
     ) -> Device {
         Device {
-            device_id: device_id.as_ref().to_string(),
-            device_name: device_name.as_ref().to_string(),
+            device_id: device_id.to_string(),
+            device_name: device_name.to_string(),
             ram_used: ram_used,
             ram_total: ram_total,
             cpu_usage: cpu_usage,

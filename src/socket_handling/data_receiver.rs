@@ -161,7 +161,7 @@ impl Receiver {
         let device_id = json_handler::read_json_from_buf("deviceID", &json);
         let device_name = json_handler::read_json_from_buf("deviceName", &json);
 
-        let result = database::rename_device(&self.database, device_id, device_name).await;
+        let result = database::rename_device(&self.database, &device_id, &device_name).await;
 
         stream.write_all(result.as_bytes()).unwrap();
     }
