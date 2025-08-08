@@ -41,6 +41,8 @@ async fn main() {
 
 -s | --server => Runs the rlsd server on 0.0.0.0:51347 and launches the TUI
 
+-st | --server-notui => Runs the rlsd server on 0.0.0.0:51347 without the TUI
+
 -r | --remove => Removes the supplied id from the db (use --list to get the id): rlsd --remove <ID>    
 
 --config => Configure the server address and device name of the client:
@@ -110,13 +112,20 @@ async fn main() {
             let db_clone = database.clone();
 
             let receiver_handle = tokio::spawn(async move {
-                let mut receiver = Receiver::new(db_clone);
+                let mut receiver = Receiver::new(db_clone, false);
                 receiver.start().await.unwrap();
             });
 
             tui::start_tui(&database).await.unwrap();
 
             receiver_handle.await.unwrap();
+
+            loop {}
+        }
+        // Start the server with no TUI
+        "-st" | "--server-notui" => {
+            let mut receiver = Receiver::new(database, true);
+            receiver.start().await.unwrap();
 
             loop {}
         }

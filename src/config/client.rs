@@ -1,7 +1,5 @@
 use serde_json::{Value, json};
 
-use crate::json_handler::ToClient;
-
 /// Settings for a device when it's in client mode
 pub struct Client {
     /// Device ID given by the server

@@ -1,6 +1,5 @@
 use std::{
-    io::{Read, Write},
-    net::{TcpListener, TcpStream},
+    collections::HashMap, io::{Read, Write}, net::{TcpListener, TcpStream}
 };
 
 use base64::{Engine, engine::general_purpose};
@@ -17,13 +16,17 @@ use crate::{
 pub struct Receiver {
     pub exit: bool,
     pub database: Pool<Sqlite>,
+    pub print: bool,
+    device_times: HashMap<String, i64>
 }
 
 impl Receiver {
-    pub fn new(database: Pool<Sqlite>) -> Receiver {
+    pub fn new(database: Pool<Sqlite>, print: bool) -> Receiver {
         Receiver {
             exit: false,
             database: database,
+            print,
+            device_times: HashMap::new(),
         }
     }
 
@@ -48,7 +51,9 @@ impl Receiver {
                     self.process_request(stream).await;
                 }
                 Err(e) => {
-                    eprintln!("Failed to handle the connection: {e}");
+                    if self.print {
+                        eprintln!("Failed to handle the connection: {e}");
+                    }
                     continue;
                 }
             }
@@ -96,20 +101,34 @@ impl Receiver {
             Ok(bytes) => match String::from_utf8(bytes) {
                 Ok(s) => s,
                 Err(e) => {
-                    eprintln!("Failed to convert decoded bytes to String: {}", e);
+                    if self.print {
+                        eprintln!("Failed to convert decoded bytes to String: {}", e);
+                    }
                     return;
                 }
             },
             Err(e) => {
-                eprintln!("Failed to decode base64 string: {}", e);
+                if self.print {
+                    eprintln!("Failed to decode base64 string: {}", e);
+                }
                 return;
+            }
+        };
+        
+        let json: Value = match serde_json::from_str(&json_string) {
+            Ok(v) => v,
+            Err(e) => {
+                if self.print {
+                    eprintln!("Failed to parse JSON: {}", e);
+                }
+                Value::String("N/A".to_string())
             }
         };
 
         // Match the command to the Commands enum
         match command.to_command() {
-            Commands::INPUT => self.input(stream, json_string).await,
-            Commands::RENAME => self.rename(stream, json_string).await,
+            Commands::INPUT => self.input(stream, json).await,
+            Commands::RENAME => self.rename(stream, json).await,
             Commands::SETUP => self.setup(stream).await,
             Commands::EXIT => self.exit(),
             _ => self.error(),
@@ -117,15 +136,18 @@ impl Receiver {
     }
 
     // Takes the json data as an input and adds it to the display data
-    async fn input(&mut self, mut stream: TcpStream, json_string: String) {
-        // Convert json_string to a Value
-        let mut json: Value = match serde_json::from_str(json_string.as_str()) {
-            Ok(val) => val,
-            Err(e) => {
-                eprintln!("Failed to parse JSON: {}", e);
-                return;
+    async fn input(&mut self, mut stream: TcpStream, mut json: Value) {
+        let device_id = json["deviceID"].as_str().unwrap();
+
+        // If it has been less than 110 seconds since the last time data was inserted, 
+        if stats_getter::get_unix_timestamp() - self.device_times.get(device_id).unwrap_or(&0) < 110 {
+            if self.print {
+                println!("{device_id} tried to send data too soon");
             }
-        };
+            return;
+        } else {
+            self.device_times.insert(device_id.to_owned(), stats_getter::get_unix_timestamp());
+        }
 
         // Replaces the time with the server time
         json["time"] = Value::Number(stats_getter::get_unix_timestamp().into());
@@ -149,15 +171,7 @@ impl Receiver {
         }
     }
 
-    async fn rename(&mut self, mut stream: TcpStream, json_string: String) {
-        let json: Value = match serde_json::from_str(json_string.as_str()) {
-            Ok(v) => v,
-            Err(e) => {
-                eprintln!("Failed to parse JSON: {}", e);
-                return;
-            }
-        };
-
+    async fn rename(&mut self, mut stream: TcpStream, json: Value) {
         let device_id = json_handler::read_json_from_buf("deviceID", &json);
         let device_name = json_handler::read_json_from_buf("deviceName", &json);
 
