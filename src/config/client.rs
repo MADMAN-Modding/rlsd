@@ -1,6 +1,6 @@
 use serde_json::{Value, json};
 
-/// Settings for a device when it's in client mode
+/// Settings for a device 1in client mode
 pub struct Client {
     /// Device ID given by the server
     pub device_id: String,

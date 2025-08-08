@@ -269,6 +269,14 @@ pub fn write_server_config(json_key: &str, value: Value) {
     write_json(&constants::get_server_config_path(), json_key, value);
 }
 
+pub fn write_server_config_all(value: Value) {
+    fs::write(
+        &constants::get_server_config_path(),
+        serde_json::to_string_pretty(&value).expect("Error serializing to JSON"),
+    )
+    .expect("Error writing file");
+}
+
 /// Iterate over a json object and return a Vec of key values
 ///
 /// # Parameters

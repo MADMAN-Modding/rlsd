@@ -8,15 +8,21 @@ use sqlx::{Pool, Sqlite};
 use tokio::time::sleep;
 
 use crate::{
-    config::server::Server, constants::get_server_config_path, json_handler::{self, ToDevice, ToServer}, socket_handling::command_type::{CommandTraits, Commands}, stats_handling::{database, device_info::get_device_id, stats_getter}
+    config::server::Server, constants::get_server_config_path, json_handler::{self, write_server_config_all, ToDevice, ToServer}, socket_handling::command_type::{CommandTraits, Commands}, stats_handling::{database, device_info::get_device_id, stats_getter}
 };
 
 #[derive(Clone)]
+/// Configuration for the socket part of the server
 pub struct Receiver {
+    /// `bool` - Should the server exit
     pub exit: bool,
+    /// `Pool<Sqlite>` - Database to be used to execute SQL queries
     pub database: Pool<Sqlite>,
+    /// `bool` - Should messages be printed
     pub print: bool,
+    /// `HashMap<String, i64>` - Keeps track of when devices are sending data so it can't be spammed
     device_times: HashMap<String, i64>,
+    /// `Server` - The server's config as an instance of `Server`
     config: Server
 }
 
@@ -38,6 +44,18 @@ impl Receiver {
         if self.config.admin_ids.is_empty() && self.print {
             println!("No admin devices found, please add at least one to allow for server management");
             sleep(Duration::from_secs(1)).await;
+        }
+
+        if self.config.registered_device_ids.is_empty() {
+            let ids = database::get_all_device_uids(&self.database).await;
+
+            for id in ids {
+                self.config.registered_device_ids.push(id);
+            }
+
+            self.config.first_run = false;
+
+            write_server_config_all(self.config.to_json());
         }
 
         match TcpListener::bind("0.0.0.0:51347") {
@@ -126,7 +144,7 @@ impl Receiver {
         let json: Value = match serde_json::from_str(&json_string) {
             Ok(v) => v,
             Err(e) => {
-                if self.print {
+                if self.print && command.to_command() != Commands::SETUP {
                     eprintln!("Failed to parse JSON: {}", e);
                 }
                 Value::String("N/A".to_string())
@@ -156,6 +174,13 @@ impl Receiver {
             return;
         } else {
             self.device_times.insert(device_id.to_owned(), stats_getter::get_unix_timestamp());
+        }
+
+        if !self.config.registered_device_ids.contains(&device_id.to_string()) {
+            if self.print {
+                println!("{device_id} tried to input data but is not registered");
+            }
+            return;
         }
 
         // Replaces the time with the server time
@@ -199,6 +224,23 @@ impl Receiver {
 
             let msg = database::remove_device(&self.database, removed_device_id).await;
 
+            // Vector to store the new ids
+            let mut new_registered_device_ids: Vec<String> = Vec::new();
+
+            // Populates the vector with all ids except the removed one
+            for id in self.config.registered_device_ids.iter() {
+                if id != removed_device_id {
+                    new_registered_device_ids.push(id.to_owned());
+                }
+            }
+
+            // Apply the new config
+            self.config.registered_device_ids = new_registered_device_ids;
+
+            // Write the new config to the config file
+            write_server_config_all(self.config.to_json());
+
+            // Try to send a message back to the client
             match stream.write_all(msg.as_bytes()) {
                 Ok(s) => s,
                 Err(e) => if self.print {eprintln!("{e}")}
@@ -217,6 +259,10 @@ impl Receiver {
 
     async fn setup(&mut self, mut stream: TcpStream) {
         let id = get_device_id(&self.database).await;
+
+        self.config.registered_device_ids.push(id.clone());
+
+        write_server_config_all(self.config.to_json());
 
         stream.write_all(id.as_bytes()).unwrap();
     }

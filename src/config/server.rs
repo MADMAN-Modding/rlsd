@@ -1,6 +1,7 @@
 use serde_json::{json, Value};
 
 #[derive(Clone)]
+/// Configuration for a device in server mode
 pub struct Server {
     /// Devices registered to connect 
     pub registered_device_ids: Vec<String>,
@@ -35,7 +36,7 @@ impl Server {
     pub fn to_json(&self) -> Value {
         json!({
             "registeredDeviceIDs": self.registered_device_ids,
-            "adminID": self.admin_ids,
+            "adminIDs": self.admin_ids,
             "firstRun": self.first_run
         })
     }
