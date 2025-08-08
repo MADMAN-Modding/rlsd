@@ -5,6 +5,7 @@ pub enum Commands {
     INPUT,
     RENAME,
     SETUP,
+    REMOVE,
     EXIT,
     ERROR,
 }
@@ -12,11 +13,12 @@ pub enum Commands {
 impl Commands {
     pub fn to_string<'a>(self) -> &'a str {
         match self {
-            Self::INPUT => "INPUT!",
-            Self::RENAME => "RENAME!",
-            Self::SETUP => "SETUP!",
-            Self::EXIT => "EXIT!",
-            Self::ERROR => "ERROR!",
+            Commands::INPUT => "INPUT!",
+            Commands::RENAME => "RENAME!",
+            Commands::SETUP => "SETUP!",
+            Commands::REMOVE => "REMOVE!",
+            Commands::EXIT => "EXIT!",
+            Commands::ERROR => "ERROR!",
         }
     }
 }
@@ -31,6 +33,7 @@ impl CommandTraits for String {
             "INPUT" => Commands::INPUT,
             "RENAME" => Commands::RENAME,
             "SETUP" => Commands::SETUP,
+            "REMOVE" => Commands::REMOVE,
             "EXIT" => Commands::EXIT,
             _ => Commands::ERROR,
         }
@@ -43,6 +46,7 @@ impl CommandTraits for str {
             "INPUT" => Commands::INPUT,
             "RENAME" => Commands::RENAME,
             "SETUP" => Commands::SETUP,
+            "REMOVE" => Commands::REMOVE,
             "EXIT" => Commands::EXIT,
             _ => Commands::ERROR,
         }

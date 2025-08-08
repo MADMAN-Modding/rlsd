@@ -3,9 +3,9 @@ use std::env;
 use crossterm::style::Stylize;
 use rlsd::{
     config::client::Client,
-    constants::{self, get_client_config_path},
+    constants::{self, get_client_config_path, get_server_config_path},
     input,
-    json_handler::{self, write_json_from_value},
+    json_handler::{self, read_client_config_json, read_json_as_value, write_json_from_value, write_server_config},
     socket_handling::{self, command_type::Commands, data_receiver::Receiver, data_sender},
     stats_handling::{
         database::{self, get_all_device_uids, get_device_name_from_uid},
@@ -13,7 +13,7 @@ use rlsd::{
     },
     tui,
 };
-use serde_json::json;
+use serde_json::{json, Value};
 
 #[tokio::main]
 async fn main() {
@@ -21,11 +21,11 @@ async fn main() {
 
     let args: Vec<String> = env::args().collect();
 
-    let vec_args = args.to_vec();
+    let args = args.to_vec();
 
     let database = database::start_db().await;
 
-    match vec_args.get(1).map_or("--help", |v| v) {
+    match args.get(1).map_or("--help", |v| v) {
         // Help
         "-h" | "--help" => {
             println!(
@@ -63,17 +63,30 @@ async fn main() {
         "-c" | "--client" => stats_loop::start_stats_loop().await,
         // Remove, removes the supplied id from the local database
         "-r" | "--remove" => {
-            match args.to_vec().get(2) {
-                Some(id) => database::remove_device(&database, id).await,
+            match args.get(2) {
+                Some(id) => println!("{}", database::remove_device(&database, id).await),
                 None => eprintln!("Please specify a device id")
             }
         }
+        "-rr" | "--remove-remote" => {
+            let removed_device_id = match args.get(2) {
+                Some(id) => id,
+                None => return
+            };
+
+            let payload = json!({
+                "deviceID": read_client_config_json("deviceID"),
+                "removedDeviceID": removed_device_id
+            });
+
+            println!("{}", data_sender::send(Commands::REMOVE, payload));
+        }
         "--config" => {
-            match vec_args.get(2).map_or("", |v| v) {
+            match args.get(2).map_or("", |v| v) {
                 "name" => {
-                    match vec_args.get(3) {
+                    match args.get(3) {
                         Some(device_name) => {
-                            json_handler::write_client_config("deviceName", device_name);
+                            json_handler::write_client_config("deviceName", Value::String(device_name.to_owned()));
 
                             let device_id = json_handler::read_client_config_json("deviceID");
 
@@ -91,7 +104,7 @@ async fn main() {
                     }
                 },
                 "server-addr" => {
-                    match vec_args.get(3) {
+                    match args.get(3) {
                         Some(v) => {
                             let addr = if v.find(":").is_none() {
                                 format!("{}:51347", v)
@@ -99,7 +112,7 @@ async fn main() {
                                 v.to_string()
                             };
 
-                            json_handler::write_client_config("serverAddr", addr)
+                            json_handler::write_client_config("serverAddr", Value::String(addr))
                         },
                         None => println!("Please supply the ip address of your server machine")
                     }
@@ -107,6 +120,22 @@ async fn main() {
                 _ => println!("Invalid format, use the following: rlsd --config <setting> <value>\nPossibly settings: name, server-ip")
             }
         },
+        "-a" | "--admin" => {
+            let admin_id = match args.get(2) {
+                Some(id) => id.to_owned(),
+                None => return
+            };
+
+            let config = read_json_as_value(&get_server_config_path());
+
+            let mut config = config.get("adminIDs").unwrap().as_array().unwrap().to_owned();
+
+            config.push(Value::String(admin_id.clone()));
+
+            write_server_config("adminIDs", serde_json::Value::Array(config));
+
+            println!("Added: {admin_id} to the admin list");
+        }
         // Server, starts the socket on a separate thread and then launches the TUI
         "-s" | "--server" => {
             let db_clone = database.clone();

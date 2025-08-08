@@ -156,7 +156,7 @@ pub async fn get_device_stats_after(
 /// # Arguments
 /// * `database: &Pool<Sqlite>` - Database to execute the query on
 /// * `device_id: &str` - Device id to search for
-pub async fn remove_device(database: &Pool<Sqlite>, device_id: &str) {    
+pub async fn remove_device(database: &Pool<Sqlite>, device_id: &str) -> String {    
     
     match sqlx::query(
         r#"
@@ -169,12 +169,12 @@ pub async fn remove_device(database: &Pool<Sqlite>, device_id: &str) {
     .ok() {
         Some(v) => {
             if v.rows_affected() == 0 {
-                println!("No rows found matching id: {device_id}")
+                format!("No rows found matching id: {device_id}")
             } else {
-                println!("Removed {} rows for device {device_id}", v.rows_affected())
+                format!("Removed {} rows for device {device_id}", v.rows_affected())
             }
         },
-        None => println!("Error removing device")
+        None => format!("Error removing device")
     }
 }
 

@@ -105,7 +105,11 @@ pub fn init_json(path: &str) -> Value {
     let _ = std::fs::create_dir_all(Path::new(&path).parent().unwrap());
 
     // Initializes the json_data variable
-    let json_data: Value = get_default_client_json_data();
+    let json_data: Value = if path.contains("client") {
+        get_default_client_json_data()
+    } else {
+        get_default_server_json_data()
+    };
 
     // Creating the JSON file
     fs::write(
@@ -133,35 +137,11 @@ pub fn init_json(path: &str) -> Value {
 /// write_json("random_path/config.json", "profile", "NewProfile");
 /// ```
 
-pub fn write_json(path: &str, json_key: &str, mut value: String) {
+pub fn write_json(path: &str, json_key: &str, value: Value) {
     // Cloning the data because a borrow won't work in this case
     let mut json_data = open_json(path);
 
-    // Writes a bool if the json_key is a checked value which must be a bool
-    if value == "true" || value == "false" {
-        let bool_value = match value.to_lowercase().as_str() {
-            "true" => true,
-            "false" => false,
-            _ => false,
-        };
-
-        json_data[json_key] = serde_json::Value::Bool(bool_value);
-    // Writes an int to the json if the value contains "version"
-    } else if value.contains("version") {
-        // Get the version number from the value
-        let sub_string: &str = value.split_at(7).1;
-        // Read the version number to a float
-        let float_value: f64 = sub_string.parse().unwrap();
-        // Truncate any decimals
-        let int_value = float_value as i16;
-
-        // Updates the json variable with the int_value at the current key
-        json_data[json_key] = serde_json::Value::Number(int_value.into());
-    } else {
-        value = value.replace("\"", "");
-
-        json_data[json_key] = serde_json::Value::String(value);
-    }
+    json_data[json_key] = value;
 
     fs::write(
         path,
@@ -277,12 +257,16 @@ pub fn write_nested_json_no_io(mut json: Value, keys: String, value: Value) -> V
 /// # Parameters
 /// `json_key: &str` - Key to write to
 /// `value : &str` - Value to write to the key
-pub fn write_client_config<T: ToString>(json_key: &str, value: T) {
+pub fn write_client_config(json_key: &str, value: Value) {
     write_json(
         &constants::get_client_config_path(),
         json_key,
-        value.to_string(),
+        value,
     );
+}
+
+pub fn write_server_config(json_key: &str, value: Value) {
+    write_json(&constants::get_server_config_path(), json_key, value);
 }
 
 /// Iterate over a json object and return a Vec of key values
@@ -428,8 +412,8 @@ pub trait ToServer {
 
 impl ToServer for serde_json::Value {
     fn to_sever(&self) -> Server {
-        let registered_device_ids: Vec<String> = self["registeredDeviceIDs"].as_array().unwrap().iter().map(|v| v.as_str().unwrap_or_default().to_string()).collect();
-        let admin_ids: Vec<String> = self["adminIDS"].as_array().unwrap().iter().map(|v| v.as_str().unwrap_or_default().to_string()).collect();
+        let registered_device_ids: Vec<String> = self["registeredDeviceIDs"].as_array().unwrap_or(&Vec::new()).iter().map(|v| v.as_str().unwrap_or_default().to_string()).collect();
+        let admin_ids: Vec<String> = self["adminIDs"].as_array().unwrap_or(&Vec::new()).iter().map(|v| v.as_str().unwrap_or_default().to_string()).collect();
 
         Server::new(
             registered_device_ids,

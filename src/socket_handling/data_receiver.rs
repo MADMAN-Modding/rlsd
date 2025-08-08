@@ -1,15 +1,14 @@
 use std::{
-    collections::HashMap, io::{Read, Write}, net::{TcpListener, TcpStream}
+    collections::HashMap, io::{Read, Write}, net::{TcpListener, TcpStream}, time::Duration
 };
 
 use base64::{Engine, engine::general_purpose};
 use serde_json::Value;
 use sqlx::{Pool, Sqlite};
+use tokio::time::sleep;
 
 use crate::{
-    json_handler::{self, ToDevice},
-    socket_handling::command_type::{CommandTraits, Commands},
-    stats_handling::{database, device_info::get_device_id, stats_getter},
+    config::server::Server, constants::get_server_config_path, json_handler::{self, ToDevice, ToServer}, socket_handling::command_type::{CommandTraits, Commands}, stats_handling::{database, device_info::get_device_id, stats_getter}
 };
 
 #[derive(Clone)]
@@ -17,21 +16,30 @@ pub struct Receiver {
     pub exit: bool,
     pub database: Pool<Sqlite>,
     pub print: bool,
-    device_times: HashMap<String, i64>
+    device_times: HashMap<String, i64>,
+    config: Server
 }
 
 impl Receiver {
     pub fn new(database: Pool<Sqlite>, print: bool) -> Receiver {
+        let config = json_handler::read_json_as_value(&get_server_config_path()).to_sever();
+
         Receiver {
             exit: false,
             database: database,
             print,
             device_times: HashMap::new(),
+            config
         }
     }
 
     /// Starts the socket
     pub async fn start(&mut self) -> std::io::Result<()> {
+        if self.config.admin_ids.is_empty() && self.print {
+            println!("No admin devices found, please add at least one to allow for server management");
+            sleep(Duration::from_secs(1)).await;
+        }
+
         match TcpListener::bind("0.0.0.0:51347") {
             Ok(listener) => self.handle_connection(listener).await,
             Err(e) => return Err(e),
@@ -130,6 +138,7 @@ impl Receiver {
             Commands::INPUT => self.input(stream, json).await,
             Commands::RENAME => self.rename(stream, json).await,
             Commands::SETUP => self.setup(stream).await,
+            Commands::REMOVE => self.remove_device(stream, json).await,
             Commands::EXIT => self.exit(),
             _ => self.error(),
         }
@@ -178,6 +187,28 @@ impl Receiver {
         let result = database::rename_device(&self.database, &device_id, &device_name).await;
 
         stream.write_all(result.as_bytes()).unwrap();
+    }
+
+    async fn remove_device(&mut self, mut stream: TcpStream, json: Value) {
+        let device_id = json.get("deviceID").unwrap().as_str().unwrap_or("N/A");
+        
+        if device_id == "N/A" {return;}
+
+        if self.config.admin_ids.contains(&device_id.to_string()) {
+            let removed_device_id = json["removedDeviceID"].as_str().unwrap();
+
+            let msg = database::remove_device(&self.database, removed_device_id).await;
+
+            match stream.write_all(msg.as_bytes()) {
+                Ok(s) => s,
+                Err(e) => if self.print {eprintln!("{e}")}
+            }
+        } else {
+            if self.print {
+                println!("{device_id} tried to remove device data without permission")
+            }
+            stream.write_all("You can't do that".as_bytes()).unwrap();
+        }
     }
 
     fn error(&mut self) {
