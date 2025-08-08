@@ -215,10 +215,13 @@ impl Receiver {
     }
 
     async fn remove_device(&mut self, mut stream: TcpStream, json: Value) {
+        // Get the device id or set it to N/A
         let device_id = json.get("deviceID").unwrap().as_str().unwrap_or("N/A");
         
+        // Return if the id is N/A
         if device_id == "N/A" {return;}
 
+        // If that sha256 exists in the admin list, continue
         if self.config.admin_ids.contains(&device_id.to_string()) {
             let removed_device_id = json["removedDeviceID"].as_str().unwrap();
 

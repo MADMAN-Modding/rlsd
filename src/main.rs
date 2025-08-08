@@ -75,7 +75,7 @@ async fn main() {
             };
 
             let payload = json!({
-                "deviceID": read_client_config_json("deviceID"),
+                "deviceID": sha256::digest(read_client_config_json("deviceID")),
                 "removedDeviceID": removed_device_id
             });
 
@@ -130,7 +130,7 @@ async fn main() {
 
             let mut config = config.get("adminIDs").unwrap().as_array().unwrap().to_owned();
 
-            config.push(Value::String(admin_id.clone()));
+            config.push(Value::String(sha256::digest(admin_id.clone())));
 
             write_server_config("adminIDs", serde_json::Value::Array(config));
 
