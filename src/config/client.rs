@@ -1,7 +1,7 @@
 use serde_json::{Value, json};
 
 /// Settings for a device 1in client mode
-pub struct Client {
+pub struct ClientConfig {
     /// Device ID given by the server
     pub device_id: String,
     /// Friendly name for the device
@@ -10,8 +10,8 @@ pub struct Client {
     pub server_addr: String,
 }
 
-impl Client {
-    /// Make a new `Client` instance
+impl ClientConfig {
+    /// Make a new `ClientConfig` instance
     ///
     /// # Arguments
     /// * `device_id: String` - ID of the device given by the server
@@ -19,16 +19,16 @@ impl Client {
     /// * `server_addr: String` - Address of the server to connect to
     ///
     /// # Returns
-    /// * A `Client` instance created from the arguments
-    pub fn new(device_id: String, device_name: String, server_addr: String) -> Client {
-        Client {
+    /// * A `ClientConfig` instance created from the arguments
+    pub fn new(device_id: String, device_name: String, server_addr: String) -> ClientConfig {
+        ClientConfig {
             device_id: device_id,
             device_name: device_name,
             server_addr: server_addr,
         }
     }
 
-    /// Convert a `Client` instance to a `Value` instance
+    /// Convert a `ClientConfig` instance to a `Value` instance
     pub fn to_json(&self) -> Value {
         json!({
             "deviceID"  : self.device_id,
@@ -37,7 +37,7 @@ impl Client {
         })
     }
 
-    /// Returns formatted string from the `Client` instance
+    /// Returns formatted string from the `ClientConfig` instance
     pub fn to_string(&self) -> String {
         format!(
             "Device ID: {}\nDevice Name: {}\nServer Address: {}",

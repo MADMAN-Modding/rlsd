@@ -2,7 +2,7 @@ use std::{thread, time::Duration};
 use systemstat::{Platform, System};
 
 use crate::{
-    constants::LOOP_TIME_SECONDS, json_handler::read_client_config_json, socket_handling::{command_type::Commands, data_sender}, stats_handling::{
+    constants::LOOP_TIME_SECONDS, json_handler::read_client_config_json, socket_handling::{command_type::Commands, client}, stats_handling::{
         device_info::Device,
         stats_getter::{
             get_cpu_usage, get_network_in, get_network_out, get_processes, get_ram_total,
@@ -32,7 +32,7 @@ pub async fn start_stats_loop() {
                 get_unix_timestamp(),
             );
 
-            data_sender::send(Commands::INPUT, device.to_json());
+            client::send(Commands::INPUT, device.to_json());
             thread::sleep(Duration::from_secs(LOOP_TIME_SECONDS));
         }
     })

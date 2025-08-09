@@ -2,7 +2,7 @@ use serde_json::{json, Value};
 
 #[derive(Clone)]
 /// Configuration for a device in server mode
-pub struct Server {
+pub struct ServerConfig {
     /// Devices registered to connect 
     pub registered_device_ids: Vec<String>,
 
@@ -14,8 +14,8 @@ pub struct Server {
     pub first_run: bool
 }
 
-impl Server {
-    /// Make a new `Server` instance
+impl ServerConfig {
+    /// Make a new `ServerConfig` instance
     /// 
     /// # Arguments
     /// * `registered_device_ids: Vec<String>` - List of device IDs registered
@@ -23,16 +23,16 @@ impl Server {
     /// * `first_run: bool` - If this is the first run of the server
     /// 
     /// # Returns
-    /// * A `Server` instance created from the arguments
-    pub fn new(registered_device_ids: Vec<String>, admin_ids: Vec<String>, first_run: bool) -> Server {
-        Server {
+    /// * A `ServerConfig` instance created from the arguments
+    pub fn new(registered_device_ids: Vec<String>, admin_ids: Vec<String>, first_run: bool) -> ServerConfig {
+        ServerConfig {
             registered_device_ids,
             admin_ids,
             first_run,
         }
     }
 
-    /// Convert a `Server` instance to a `Value` instance
+    /// Convert a `ServerConfig` instance to a `Value` instance
     pub fn to_json(&self) -> Value {
         json!({
             "registeredDeviceIDs": self.registered_device_ids,

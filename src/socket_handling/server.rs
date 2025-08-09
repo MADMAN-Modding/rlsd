@@ -8,7 +8,7 @@ use sqlx::{Pool, Sqlite};
 use tokio::time::sleep;
 
 use crate::{
-    config::server::Server, constants::get_server_config_path, json_handler::{self, write_server_config_all, ToDevice, ToServer}, socket_handling::command_type::{CommandTraits, Commands}, stats_handling::{database, device_info::get_device_id, stats_getter}
+    config::server::ServerConfig as ServerConfig, constants::get_server_config_path, json_handler::{self, write_server_config_all, ToDevice, ToServerConfig}, socket_handling::command_type::{CommandTraits, Commands}, stats_handling::{database, device_info::get_device_id, stats_getter}
 };
 
 #[derive(Clone)]
@@ -23,7 +23,7 @@ pub struct Receiver {
     /// `HashMap<String, i64>` - Keeps track of when devices are sending data so it can't be spammed
     device_times: HashMap<String, i64>,
     /// `Server` - The server's config as an instance of `Server`
-    config: Server
+    config: ServerConfig
 }
 
 impl Receiver {
@@ -270,9 +270,12 @@ impl Receiver {
 
         let mut msg = String::new();
 
+        // Adds every device to the message except for admins
         for id in ids {
-            msg = format!("{msg}\n{}: {}", database::get_device_name_from_uid(&self.database, &id).await, id)
-        } 
+            if !self.admin_check(&sha256::digest(&id)) {
+                msg = format!("{msg}\n{}: {}", database::get_device_name_from_uid(&self.database, &id).await, id)
+            }
+        }
 
         match stream.write_all(msg.as_bytes()) {
             Ok(s) => s,

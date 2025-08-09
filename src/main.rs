@@ -2,11 +2,11 @@ use std::env;
 
 use crossterm::style::Stylize;
 use rlsd::{
-    config::client::Client,
+    config::client::ClientConfig,
     constants::{self, get_client_config_path, get_server_config_path},
     input,
     json_handler::{self, read_client_config_json, read_json_as_value, write_json_from_value, write_server_config},
-    socket_handling::{self, command_type::Commands, data_receiver::Receiver, data_sender},
+    socket_handling::{self, command_type::Commands, server::Receiver, client},
     stats_handling::{
         database::{self, get_all_device_uids, get_device_name_from_uid},
         stats_loop,
@@ -43,7 +43,13 @@ async fn main() {
 
 -st | --server-notui => Runs the rlsd server on 0.0.0.0:51347 without the TUI
 
+-a | --admin => Adds a device as an admin using the supplied id: rlsd -a <ID>
+
 -r | --remove => Removes the supplied id from the db (use --list to get the id): rlsd --remove <ID>    
+
+-rr | --remove-remote => (admin only) Removes the supplied id from the db on the configured server (use -rl to get the id): rlsd -rl <ID>
+
+-rl | --remote-list => (admin only) Lists all the devices on the server and their ids (does not include admin ids for security)
 
 --config => Configure the server address and device name of the client:
     rlsd --config <name, server-addr> <value>"
@@ -68,6 +74,7 @@ async fn main() {
                 None => eprintln!("Please specify a device id")
             }
         }
+        // Remove a device on the remote server (admin) 
         "-rr" | "--remove-remote" => {
             let removed_device_id = match args.get(2) {
                 Some(id) => id,
@@ -79,13 +86,15 @@ async fn main() {
                 "removedDeviceID": removed_device_id
             });
 
-            println!("{}", data_sender::send(Commands::REMOVE, payload));
+            println!("{}", client::send(Commands::REMOVE, payload));
         }
+        // List the devices on the remote server (admin)
         "-rl" | "--remote-list" => {
             let sha_device_id = sha256::digest(read_client_config_json("deviceID"));
 
-            println!("{}", data_sender::send(Commands::LIST, json!({"deviceID": sha_device_id})));
+            println!("{}", client::send(Commands::LIST, json!({"deviceID": sha_device_id})));
         }
+        // Configure settings for the client
         "--config" => {
             match args.get(2).map_or("", |v| v) {
                 "name" => {
@@ -100,7 +109,7 @@ async fn main() {
                                 "deviceName": device_name
                             });
 
-                            let msg = data_sender::send(Commands::RENAME, payload);
+                            let msg = client::send(Commands::RENAME, payload);
 
                             println!("{msg}")
 
@@ -177,9 +186,9 @@ pub fn setup() {
         server_addr = format!("{}:51347", server_addr);
     }
 
-    let device_id = socket_handling::data_sender::setup(&server_addr);
+    let device_id = socket_handling::client::setup(&server_addr);
 
-    let client_conf = Client::new(device_id, device_name, server_addr);
+    let client_conf = ClientConfig::new(device_id, device_name, server_addr);
 
     write_json_from_value(&get_client_config_path(), client_conf.to_json());
 

@@ -8,7 +8,7 @@ use std::{
 use serde_json::{json, Value};
 
 use crate::{
-    config::{client::Client, server::Server},
+    config::{client::ClientConfig, server::ServerConfig},
     constants::{self, get_client_config_path, get_server_config_path},
     stats_handling::device_info::Device,
 };
@@ -396,17 +396,17 @@ pub trait ToDevice {
     fn to_device(&self) -> Device;
 }
 
-pub trait ToClient {
-    fn to_client(&self) -> Client;
+pub trait ToClientConfig {
+    fn to_client(&self) -> ClientConfig;
 }
 
-impl ToClient for serde_json::Value {
-    /// Converts a JSON `Value` to a `Client` instance
+impl ToClientConfig for serde_json::Value {
+    /// Converts a JSON `Value` to a `ClientConfig` instance
     ///
     /// # Returns
-    /// * A `Client` instance created from the JSON `Value`
-    fn to_client(&self) -> Client {
-        Client::new(
+    /// * A `ClientConfig` instance created from the JSON `Value`
+    fn to_client(&self) -> ClientConfig {
+        ClientConfig::new(
             self["deviceID"].as_str().unwrap_or_default().to_string(),
             self["deviceName"].as_str().unwrap_or_default().to_string(),
             self["serverAddr"].as_str().unwrap_or_default().to_string(),
@@ -414,16 +414,16 @@ impl ToClient for serde_json::Value {
     }
 }
 
-pub trait ToServer {
-    fn to_sever(&self) -> Server;
+pub trait ToServerConfig {
+    fn to_sever(&self) -> ServerConfig;
 }
 
-impl ToServer for serde_json::Value {
-    fn to_sever(&self) -> Server {
+impl ToServerConfig for serde_json::Value {
+    fn to_sever(&self) -> ServerConfig {
         let registered_device_ids: Vec<String> = self["registeredDeviceIDs"].as_array().unwrap_or(&Vec::new()).iter().map(|v| v.as_str().unwrap_or_default().to_string()).collect();
         let admin_ids: Vec<String> = self["adminIDs"].as_array().unwrap_or(&Vec::new()).iter().map(|v| v.as_str().unwrap_or_default().to_string()).collect();
 
-        Server::new(
+        ServerConfig::new(
             registered_device_ids,
             admin_ids,
             self["firstRun"].as_bool().unwrap_or(false),
