@@ -6,11 +6,11 @@ use std::{
 use base64::{Engine, engine::general_purpose};
 use serde_json::Value;
 
-use crate::{json_handler::read_client_config_json, socket_handling::command_type::Commands};
+use crate::{json_handler::read_client_config_string, socket_handling::command_type::Commands};
 
 /// Sends data to the socket
 pub fn send(command: Commands, data: Value) -> String {
-    let server_addr = read_client_config_json("serverAddr");
+    let server_addr = read_client_config_string("serverAddr");
 
     let mut connection = match connect(&server_addr) {
         Ok(c) => c,

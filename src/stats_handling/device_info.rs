@@ -1,8 +1,7 @@
 use serde_json::{Value, json};
-use sqlx::{Pool, Sqlite};
 use uuid::Uuid;
 
-use crate::{json_handler::ToDevice, stats_handling::database::check_device_id_exists};
+use crate::{json_handler::{read_server_config_value, ToDevice, ToServerConfig}};
 
 /// Holds all the information about a device each minute it is monitored
 #[derive(sqlx::FromRow, Clone)]
@@ -121,12 +120,19 @@ impl ToDevice for serde_json::Value {
     }
 }
 
-/// Returns a uuid for a device
-pub async fn get_device_id(database: &Pool<Sqlite>) -> String {
+/// Generates a new device id
+/// 
+/// # Returns
+/// `String` - The id of the new device
+pub async fn get_device_id() -> String {
     loop {
         let id = Uuid::new_v4().to_string();
 
-        if check_device_id_exists(&id, database).await {
+        let config = read_server_config_value();
+
+        let devices = config["registeredDeviceIDs"].to_server().registered_device_ids;
+
+        if !devices.contains(&id) {
             return id;
         }
     }

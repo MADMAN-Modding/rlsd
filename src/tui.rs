@@ -238,7 +238,7 @@ pub async fn start_tui(database: &Pool<Sqlite>) -> Result<(), Box<dyn std::error
             let tabs = Tabs::new(titles)
                 .select(app.selected_device)
                 .block(Block::default().title("Devices").borders(Borders::ALL))
-                .highlight_style(Style::default().fg(Color::Yellow));
+                .highlight_style(Style::default().fg(Color::Green));
             f.render_widget(tabs, chunks[0]);
 
             // Gets the time range as a str

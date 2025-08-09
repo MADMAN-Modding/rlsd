@@ -15,19 +15,26 @@ use crate::{
 
 /// Reads the config json and returns the value of the requested key
 ///
-/// # Parameters
+/// # Arguments
 /// * `key: &str` - The key to be read from the json file
 ///
 /// # Returns
 /// * `String` - The data at the desired key
-
-pub fn read_client_config_json(key: &str) -> String {
+pub fn read_client_config_string(key: &str) -> String {
     read_json(key, &constants::get_client_config_path())
+}
+
+/// Reads the server config as a `Value` instance
+/// 
+/// # Returns
+/// `Value` - The server's config
+pub fn read_server_config_value() -> Value {
+    read_json_as_value(&constants::get_server_config_path())
 }
 
 /// Reads the json at the supplied path and returns the value of the requested key
 ///
-/// # Parameters
+/// # Arguments
 /// * `key: &str` - The key to be read from the json file
 /// * `path: String` - The path to the json file
 ///
@@ -50,7 +57,7 @@ pub fn read_json_from_buf(key: &str, json: &Value) -> String {
 
 /// Opens the json file with the supplied path
 ///
-/// # Parameters
+/// # Arguments
 /// * `path: String` - The path to the JSON file to read
 ///
 /// # Returns
@@ -95,7 +102,7 @@ fn open_json(path: &str) -> Value {
 ///
 /// It after making the file it will try to read the file and then return that value
 ///
-/// # Parameters
+/// # Arguments
 /// * `path: String` - The path to the JSON file to read
 ///
 /// # Returns
@@ -127,7 +134,7 @@ pub fn init_json(path: &str) -> Value {
 
 /// Writes to the JSON file at the supplied path
 ///
-/// # Parameters
+/// # Arguments
 /// * `path: String` - Path to the JSON file
 /// * `json_key: String` - Key to write to
 /// * `value: String` ` Value to write to the key`
@@ -162,7 +169,7 @@ pub fn write_json_from_value(path: &str, json: Value) {
 /// Recursively reads a JSON value and writes a new value to the specified key path.
 /// No IO means it won't write to file system
 ///
-/// # Parameters
+/// # Arguments
 /// * `json` - The JSON value to be modified.
 /// * `keys` - A dot-separated string path specifying the keys/indexes to traverse. Array indices should be wrapped in square brackets, `arrayKey[0].nestedKey`.
 /// * `value` - The new value to write at the final key.
@@ -254,9 +261,9 @@ pub fn write_nested_json_no_io(mut json: Value, keys: String, value: Value) -> V
 
 /// Writes to the config json
 ///
-/// # Parameters
-/// `json_key: &str` - Key to write to
-/// `value : &str` - Value to write to the key
+/// # Arguments
+/// * `json_key: &str` - Key to write to
+/// * `value: &str` - Value to write to the key
 pub fn write_client_config(json_key: &str, value: Value) {
     write_json(
         &constants::get_client_config_path(),
@@ -265,10 +272,19 @@ pub fn write_client_config(json_key: &str, value: Value) {
     );
 }
 
+/// Writes to the server json
+/// 
+/// # Arguments
+/// * `json_key: &str` - Key to write to
+/// * `value: &str` - Value to write to the key
 pub fn write_server_config(json_key: &str, value: Value) {
     write_json(&constants::get_server_config_path(), json_key, value);
 }
 
+/// Writes to the server config using a whole JSON value
+/// 
+/// # Arguments
+/// * `value: Value` - Configuration to set the whole config to
 pub fn write_server_config_all(value: Value) {
     fs::write(
         &constants::get_server_config_path(),
@@ -279,9 +295,9 @@ pub fn write_server_config_all(value: Value) {
 
 /// Iterate over a json object and return a Vec of key values
 ///
-/// # Parameters
-/// * `json_key : &str` - Key to search for
-/// * `json : &Value` - Reference to json object to be search
+/// # Arguments
+/// * `json_key: &str` - Key to search for
+/// * `json: &Value` - Reference to json object to be search
 ///
 /// # Returns
 /// 'Vec<String>' Contains all the found values
@@ -305,9 +321,9 @@ pub fn iterate_json(json_key: &str, json: &Value) -> Vec<String> {
 
 /// Iterates over a json object
 ///
-/// # Parameters
-/// * `json_key` : &str` - Key to search for
-/// * `json : &Value` - Reference to json object to be searched
+/// # Arguments
+/// * `json_key`: &str` - Key to search for
+/// * `json: &Value` - Reference to json object to be searched
 ///
 /// # Returns
 /// `Vec<String>` Contains all the found values
@@ -330,8 +346,8 @@ fn iterate_json_map(json_key: &str, json: &Value) -> Vec<String> {
 
 /// Counts the length of a json object
 ///
-/// # Parameters
-/// * `json : &Value` - JSON to be searched
+/// # Arguments
+/// * `json: &Value` - JSON to be searched
 ///
 /// # Returns
 /// * `u32` The length of the json
@@ -415,11 +431,11 @@ impl ToClientConfig for serde_json::Value {
 }
 
 pub trait ToServerConfig {
-    fn to_sever(&self) -> ServerConfig;
+    fn to_server(&self) -> ServerConfig;
 }
 
 impl ToServerConfig for serde_json::Value {
-    fn to_sever(&self) -> ServerConfig {
+    fn to_server(&self) -> ServerConfig {
         let registered_device_ids: Vec<String> = self["registeredDeviceIDs"].as_array().unwrap_or(&Vec::new()).iter().map(|v| v.as_str().unwrap_or_default().to_string()).collect();
         let admin_ids: Vec<String> = self["adminIDs"].as_array().unwrap_or(&Vec::new()).iter().map(|v| v.as_str().unwrap_or_default().to_string()).collect();
 

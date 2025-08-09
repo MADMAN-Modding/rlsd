@@ -2,7 +2,7 @@ use std::{thread, time::Duration};
 use systemstat::{Platform, System};
 
 use crate::{
-    constants::LOOP_TIME_SECONDS, json_handler::read_client_config_json, socket_handling::{command_type::Commands, client}, stats_handling::{
+    constants::LOOP_TIME_SECONDS, json_handler::read_client_config_string, socket_handling::{command_type::Commands, client}, stats_handling::{
         device_info::Device,
         stats_getter::{
             get_cpu_usage, get_network_in, get_network_out, get_processes, get_ram_total,
@@ -13,9 +13,9 @@ use crate::{
 
 pub async fn start_stats_loop() {
     let result = thread::spawn(|| {
-        let device_id = read_client_config_json("deviceID");
+        let device_id = read_client_config_string("deviceID");
 
-        let device_name = read_client_config_json("deviceName");
+        let device_name = read_client_config_string("deviceName");
 
         loop {
             let sys = &System::new();

@@ -5,6 +5,8 @@ pub enum Commands {
     INPUT,
     /// Rename device
     RENAME,
+    /// Rename a device remotely
+    AdminRename,
     /// Get device_id for new client
     SETUP,
     /// Remove a device
@@ -20,13 +22,14 @@ pub enum Commands {
 impl Commands {
     pub fn to_string<'a>(self) -> &'a str {
         match self {
-            Commands::INPUT => "INPUT!",
-            Commands::RENAME => "RENAME!",
-            Commands::SETUP => "SETUP!",
-            Commands::REMOVE => "REMOVE!",
-            Commands::LIST => "LIST!",
-            Commands::EXIT => "EXIT!",
-            Commands::ERROR => "ERROR!",
+            Commands::INPUT         => "INPUT!",
+            Commands::RENAME        => "RENAME!",
+            Commands::AdminRename   => "AdminRename!",
+            Commands::SETUP         => "SETUP!",
+            Commands::REMOVE        => "REMOVE!",
+            Commands::LIST          => "LIST!",
+            Commands::EXIT          => "EXIT!",
+            Commands::ERROR         => "ERROR!",
         }
     }
 }
@@ -38,13 +41,14 @@ pub trait CommandTraits {
 impl CommandTraits for String {
     fn to_command(&self) -> Commands {
         match self.replace("!", "").as_str() {
-            "INPUT" => Commands::INPUT,
-            "RENAME" => Commands::RENAME,
-            "SETUP" => Commands::SETUP,
-            "REMOVE" => Commands::REMOVE,
-            "LIST" => Commands::LIST,
-            "EXIT" => Commands::EXIT,
-            _ => Commands::ERROR,
+            "INPUT"         => Commands::INPUT,
+            "RENAME"        => Commands::RENAME,
+            "AdminRename"   => Commands::AdminRename,
+            "SETUP"         => Commands::SETUP,
+            "REMOVE"        => Commands::REMOVE,
+            "LIST"          => Commands::LIST,
+            "EXIT"          => Commands::EXIT,
+            _               => Commands::ERROR,
         }
     }
 }
@@ -52,13 +56,14 @@ impl CommandTraits for String {
 impl CommandTraits for str {
     fn to_command(&self) -> Commands {
         match self.replace("!", "").as_str() {
-            "INPUT" => Commands::INPUT,
-            "RENAME" => Commands::RENAME,
-            "SETUP" => Commands::SETUP,
-            "REMOVE" => Commands::REMOVE,
-            "LIST" => Commands::LIST,
-            "EXIT" => Commands::EXIT,
-            _ => Commands::ERROR,
+            "INPUT"         => Commands::INPUT,
+            "RENAME"        => Commands::RENAME,
+            "AdminRename"   => Commands::AdminRename,
+            "SETUP"         => Commands::SETUP,
+            "REMOVE"        => Commands::REMOVE,
+            "LIST"          => Commands::LIST,
+            "EXIT"          => Commands::EXIT,
+            _               => Commands::ERROR,
         }
     }
 }

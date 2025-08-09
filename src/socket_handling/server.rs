@@ -13,7 +13,7 @@ use crate::{
 
 #[derive(Clone)]
 /// Configuration for the socket part of the server
-pub struct Receiver {
+pub struct Server {
     /// `bool` - Should the server exit
     pub exit: bool,
     /// `Pool<Sqlite>` - Database to be used to execute SQL queries
@@ -26,11 +26,16 @@ pub struct Receiver {
     config: ServerConfig
 }
 
-impl Receiver {
-    pub fn new(database: Pool<Sqlite>, print: bool) -> Receiver {
-        let config = json_handler::read_json_as_value(&get_server_config_path()).to_sever();
+impl Server {
+    /// Makes a new `Server` instance
+    /// 
+    /// # Arguments
+    /// * `database: Pool<Sqlite>` - Database to execute SQL queries on
+    /// * `print: bool` - Should messages be printed to the console (disable with the TUI)
+    pub fn new(database: Pool<Sqlite>, print: bool) -> Server {
+        let config = json_handler::read_json_as_value(&get_server_config_path()).to_server();
 
-        Receiver {
+        Server {
             exit: false,
             database: database,
             print,
@@ -69,6 +74,9 @@ impl Receiver {
     /// For every stream, match it;
     /// * If it's Ok, process it
     /// * If it's Err, print the error
+    /// 
+    /// # Arguments
+    /// * `listener: TcpListener` - Listener for incoming connections
     async fn handle_connection(&mut self, listener: TcpListener) {
         for stream in listener.incoming() {
             // If the incoming traffic is valid then process it, otherwise print an error and continue to the next loop
@@ -90,6 +98,7 @@ impl Receiver {
         }
     }
 
+    /// Sets the exit variable to true
     fn exit(&mut self) {
         self.exit = true;
     }
@@ -97,6 +106,9 @@ impl Receiver {
     /// Takes the stream and determines what command should be ran
     ///
     /// Decodes the base64 data to json
+    /// 
+    /// # Arguments
+    /// * `mut stream: TcpStream` - Stream the client is connected to
     async fn process_request(&mut self, mut stream: TcpStream) {
         // Makes the buffer to store the data
         let mut buf = [0; 1024];
@@ -123,7 +135,7 @@ impl Receiver {
         );
 
         // Convert the decode bytes to a string
-        let json_string = match decoded_bytes {
+        let payload_string = match decoded_bytes {
             Ok(bytes) => match String::from_utf8(bytes) {
                 Ok(s) => s,
                 Err(e) => {
@@ -141,7 +153,7 @@ impl Receiver {
             }
         };
         
-        let json: Value = match serde_json::from_str(&json_string) {
+        let payload: Value = match serde_json::from_str(&payload_string) {
             Ok(v) => v,
             Err(e) => {
                 if self.print && command.to_command() != Commands::SETUP {
@@ -153,19 +165,20 @@ impl Receiver {
 
         // Match the command to the Commands enum
         match command.to_command() {
-            Commands::INPUT => self.input(stream, json).await,
-            Commands::RENAME => self.rename(stream, json).await,
-            Commands::SETUP => self.setup(stream).await,
-            Commands::REMOVE => self.remove_device(stream, json).await,
-            Commands::LIST => self.list(stream, json).await,
-            Commands::EXIT => self.exit(),
+            Commands::INPUT         => self.input(stream, payload).await,
+            Commands::RENAME        => self.rename(stream, payload).await,
+            Commands::AdminRename   => self.admin_rename(stream, payload).await,
+            Commands::SETUP 		=> self.setup(stream).await,
+            Commands::REMOVE 		=> self.remove_device(stream, payload).await,
+            Commands::LIST 			=> self.list(stream, payload).await,
+            Commands::EXIT 			=> self.exit(),
             _ => self.error(),
         }
     }
 
-    // Takes the json data as an input and adds it to the display data
-    async fn input(&mut self, mut stream: TcpStream, mut json: Value) {
-        let device_id = json["deviceID"].as_str().unwrap();
+    /// Takes the json data as an input and adds it to the display data
+    async fn input(&mut self, mut stream: TcpStream, mut payload: Value) {
+        let device_id = payload["deviceID"].as_str().unwrap();
 
         // If it has been less than 110 seconds since the last time data was inserted, 
         if stats_getter::get_unix_timestamp() - self.device_times.get(device_id).unwrap_or(&0) < 110 {
@@ -185,9 +198,9 @@ impl Receiver {
         }
 
         // Replaces the time with the server time
-        json["time"] = Value::Number(stats_getter::get_unix_timestamp().into());
+        payload["time"] = Value::Number(stats_getter::get_unix_timestamp().into());
 
-        let device = json.to_device();
+        let device = payload.to_device();
 
         if device.device_id != "N/A" {
             // println!("INPUT RECEIVED:\n{}\n{}\n{}", get_divider(), device.to_string().blue().bold(), get_divider());
@@ -206,25 +219,52 @@ impl Receiver {
         }
     }
 
-    async fn rename(&mut self, mut stream: TcpStream, json: Value) {
-        let device_id = json_handler::read_json_from_buf("deviceID", &json);
-        let device_name = json_handler::read_json_from_buf("deviceName", &json);
+    /// Renames the supplied device id on the DB
+    /// Sends the total amount of effected rows back to the client
+    /// 
+    /// # Arguments
+    /// * `mut steam: TcpStream` - Stream the client is connected to
+    /// * `payload: Value` - Payload from the client
+    async fn rename(&mut self, mut stream: TcpStream, payload: Value) {
+        let device_id = json_handler::read_json_from_buf("deviceID", &payload);
+        let device_name = json_handler::read_json_from_buf("deviceName", &payload);
 
         let result = database::rename_device(&self.database, &device_id, &device_name).await;
 
         stream.write_all(result.as_bytes()).unwrap();
     }
 
-    async fn remove_device(&mut self, mut stream: TcpStream, json: Value) {
+    async fn admin_rename(&mut self, mut stream: TcpStream, mut payload: Value) {
+        let device_id = json_handler::read_json_from_buf("deviceID", &payload);
+
+        if self.admin_check(&device_id) {
+            payload["deviceID"] = payload["renamedDeviceID"].clone();
+
+            self.rename(stream, payload).await;
+        } else {
+            match stream.write_all("You're not allowed to do that".as_bytes()) {
+                Ok(s) => s,
+                Err(e) => if self.print {println!("{e}")}
+            }
+        }
+    }
+
+    /// Removes the supplied device from the registered devices and db
+    /// Sends the total amount of effected rows back to the client
+    /// 
+    /// # Arguments
+    /// * `mut steam: TcpSteam` - Stream the client is connected to
+    /// * `payload: Value` - Payload from the client
+    async fn remove_device(&mut self, mut stream: TcpStream, payload: Value) {
         // Get the device id or set it to N/A
-        let device_id = json.get("deviceID").unwrap().as_str().unwrap_or("N/A");
+        let device_id = payload.get("deviceID").unwrap().as_str().unwrap_or("N/A");
         
         // Return if the id is N/A
         if device_id == "N/A" {return;}
 
         // If that sha256 exists in the admin list, continue
         if self.admin_check(device_id) {
-            let removed_device_id = json["removedDeviceID"].as_str().unwrap();
+            let removed_device_id = payload["removedDeviceID"].as_str().unwrap();
 
             let msg = database::remove_device(&self.database, removed_device_id).await;
 
@@ -257,8 +297,13 @@ impl Receiver {
         }
     }
 
-    async fn list(&mut self, mut stream: TcpStream, json: Value) {
-        if !self.admin_check(json["deviceID"].as_str().unwrap()) {
+    /// Lists all non-admin devices on the server and sends them back over the TcpSteam
+    /// 
+    /// # Arguments
+    /// * `mut stream: TcpSteam` - Stream the client is connected to
+    /// * `payload: Value` - Payload sent by the client
+    async fn list(&mut self, mut stream: TcpStream, payload: Value) {
+        if !self.admin_check(payload["deviceID"].as_str().unwrap()) {
             match stream.write_all("You aren't allow to do that".as_bytes()) {
                 Ok(s) => s,
                 Err(e) => if self.print {println!("{e}")}
@@ -283,12 +328,19 @@ impl Receiver {
         }
     }
 
+    /// If the command sent isn't recognized, print a message
     fn error(&mut self) {
-        eprintln!("Command not recognized!")
+        if self.print {
+            eprintln!("Command not recognized!")
+        }
     }
 
+    /// Makes a new id for the requesting device
+    /// 
+    /// # Arguments
+    /// * `mut stream: TcpStream` - Stream the client is connected to
     async fn setup(&mut self, mut stream: TcpStream) {
-        let id = get_device_id(&self.database).await;
+        let id = get_device_id().await;
 
         self.config.registered_device_ids.push(id.clone());
 
@@ -297,6 +349,13 @@ impl Receiver {
         stream.write_all(id.as_bytes()).unwrap();
     }
 
+    /// Checks to see if the supplied sha256 id is an admin
+    /// 
+    /// # Arguments
+    /// * `id: &str` - Sha256 of the device's ID
+    /// 
+    /// # Returns
+    /// `bool` - True if the device is an admin 
     fn admin_check(&mut self, id: &str) -> bool {
         if self.config.admin_ids.contains(&id.to_string()) {
             true

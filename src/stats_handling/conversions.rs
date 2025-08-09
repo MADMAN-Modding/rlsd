@@ -62,20 +62,20 @@ impl Unit {
     /// * `usize` - Value of the unit in Bytes
     pub fn to_uint(&self) -> u128 {
         match self {
-            Self::BYTE => byte_to_unit::BYTE,
-            Self::KIBIBYTE => byte_to_unit::KIBIBYTE,
-            Self::MEBIBYTE => byte_to_unit::MEBIBYTE,
-            Self::GIBIBYTE => byte_to_unit::GIBIBYTE,
-            Self::TEBIBYTE => byte_to_unit::TEBIBYTE,
-            Self::PEBIBYTE => byte_to_unit::PEBIBYTE,
-            Self::Percentage => 100,
-            Self::SECOND => time_to_second::SECOND,
-            Self::MINUTE => time_to_second::MINUTE,
-            Self::HOUR => time_to_second::HOUR,
-            Self::DAY => time_to_second::DAY,
-            Self::WEEK => time_to_second::WEEK,
-            Self::YEAR => time_to_second::YEAR,
-            Self::DECADE => time_to_second::DECADE
+            Self::BYTE          => byte_to_unit::BYTE,
+            Self::KIBIBYTE 		=> byte_to_unit::KIBIBYTE,
+            Self::MEBIBYTE 		=> byte_to_unit::MEBIBYTE,
+            Self::GIBIBYTE 		=> byte_to_unit::GIBIBYTE,
+            Self::TEBIBYTE 		=> byte_to_unit::TEBIBYTE,
+            Self::PEBIBYTE 		=> byte_to_unit::PEBIBYTE,
+            Self::Percentage    => 100,
+            Self::SECOND 		=> time_to_second::SECOND,
+            Self::MINUTE 		=> time_to_second::MINUTE,
+            Self::HOUR 			=> time_to_second::HOUR,
+            Self::DAY 			=> time_to_second::DAY,
+            Self::WEEK 			=> time_to_second::WEEK,
+            Self::YEAR 			=> time_to_second::YEAR,
+            Self::DECADE 		=> time_to_second::DECADE
         }
     }
 
@@ -86,39 +86,39 @@ impl Unit {
     /// Returns the next highest Unit
     pub fn next(&self) -> Unit {
         match self {
-            Self::BYTE => Self::KIBIBYTE,
-            Self::KIBIBYTE => Self::MEBIBYTE,
-            Self::MEBIBYTE => Self::GIBIBYTE,
-            Self::GIBIBYTE => Self::TEBIBYTE,
-            Self::TEBIBYTE => Self::PEBIBYTE,
-            Self::PEBIBYTE => Self::PEBIBYTE,
-            Self::Percentage => Self::Percentage,
-            Self::SECOND => Self::MINUTE,
-            Self::MINUTE => Self::HOUR,
-            Self::HOUR => Self::DAY,
-            Self::DAY => Self::WEEK,
-            Self::WEEK => Self::YEAR,
-            Self::YEAR => Self::DECADE,
-            Self::DECADE => Self::DECADE
+            Self::BYTE          => Self::KIBIBYTE,
+            Self::KIBIBYTE 		=> Self::MEBIBYTE,
+            Self::MEBIBYTE 		=> Self::GIBIBYTE,
+            Self::GIBIBYTE 		=> Self::TEBIBYTE,
+            Self::TEBIBYTE 		=> Self::PEBIBYTE,
+            Self::PEBIBYTE 		=> Self::PEBIBYTE,
+            Self::Percentage    => Self::Percentage,
+            Self::SECOND 		=> Self::MINUTE,
+            Self::MINUTE 		=> Self::HOUR,
+            Self::HOUR 			=> Self::DAY,
+            Self::DAY 			=> Self::WEEK,
+            Self::WEEK 			=> Self::YEAR,
+            Self::YEAR 			=> Self::DECADE,
+            Self::DECADE 		=> Self::DECADE
         }
     }
 
     pub fn to_str(&self) -> &str {
         match self {
-            Self::BYTE => "B",
-            Self::KIBIBYTE => "KiB",
-            Self::MEBIBYTE => "MiB",
-            Self::GIBIBYTE => "GiB",
-            Self::TEBIBYTE => "TiB",
-            Self::PEBIBYTE => "PiB",
-            Self::Percentage => "%",
-            Self::SECOND => "s",
-            Self::MINUTE => "minutes",
-            Self::HOUR => "hours",
-            Self::DAY => "days",
-            Self::WEEK => "weeks",
-            Self::YEAR => "years",
-            Self::DECADE => "decades"
+            Self::BYTE          => "B",
+            Self::KIBIBYTE 		=> "KiB",
+            Self::MEBIBYTE 		=> "MiB",
+            Self::GIBIBYTE 		=> "GiB",
+            Self::TEBIBYTE 		=> "TiB",
+            Self::PEBIBYTE 		=> "PiB",
+            Self::Percentage    => "%",
+            Self::SECOND 		=> "s",
+            Self::MINUTE 		=> "minutes",
+            Self::HOUR 			=> "hours",
+            Self::DAY 			=> "days",
+            Self::WEEK 			=> "weeks",
+            Self::YEAR 			=> "years",
+            Self::DECADE 		=> "decades"
         }
     }
 }
@@ -126,20 +126,20 @@ impl Unit {
 impl std::fmt::Display for Unit {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::BYTE => write!(f, "{}", self.to_str()),
-            Self::KIBIBYTE => write!(f, "{}", self.to_str()),
-            Self::MEBIBYTE => write!(f, "{}", self.to_str()),
-            Self::GIBIBYTE => write!(f, "{}", self.to_str()),
-            Self::TEBIBYTE => write!(f, "{}", self.to_str()),
-            Self::PEBIBYTE => write!(f, "{}", self.to_str()),
-            Self::Percentage => write!(f, "{}", self.to_str()),
-            Self::SECOND => write!(f, "{}", self.to_str()),
-            Self::MINUTE => write!(f, "{}", self.to_str()),
-            Self::HOUR => write!(f, "{}", self.to_str()),
-            Self::DAY => write!(f, "{}", self.to_str()),
-            Self::WEEK => write!(f, "{}", self.to_str()),
-            Self::YEAR => write!(f, "{}", self.to_str()),
-            Self::DECADE => write!(f, "{}", self.to_str())
+            Self::BYTE          => write!(f, "{}", self.to_str()),
+            Self::KIBIBYTE      => write!(f, "{}", self.to_str()),
+            Self::MEBIBYTE      => write!(f, "{}", self.to_str()),
+            Self::GIBIBYTE      => write!(f, "{}", self.to_str()),
+            Self::TEBIBYTE      => write!(f, "{}", self.to_str()),
+            Self::PEBIBYTE      => write!(f, "{}", self.to_str()),
+            Self::Percentage    => write!(f, "{}", self.to_str()),
+            Self::SECOND        => write!(f, "{}", self.to_str()),
+            Self::MINUTE        => write!(f, "{}", self.to_str()),
+            Self::HOUR          => write!(f, "{}", self.to_str()),
+            Self::DAY           => write!(f, "{}", self.to_str()),
+            Self::WEEK          => write!(f, "{}", self.to_str()),
+            Self::YEAR          => write!(f, "{}", self.to_str()),
+            Self::DECADE        => write!(f, "{}", self.to_str())
         }
     }
 }

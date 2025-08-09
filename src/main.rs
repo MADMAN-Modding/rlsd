@@ -5,8 +5,8 @@ use rlsd::{
     config::client::ClientConfig,
     constants::{self, get_client_config_path, get_server_config_path},
     input,
-    json_handler::{self, read_client_config_json, read_json_as_value, write_json_from_value, write_server_config},
-    socket_handling::{self, command_type::Commands, server::Receiver, client},
+    json_handler::{self, read_client_config_string, read_json_as_value, write_json_from_value, write_server_config},
+    socket_handling::{self, command_type::Commands, server::Server, client},
     stats_handling::{
         database::{self, get_all_device_uids, get_device_name_from_uid},
         stats_loop,
@@ -47,9 +47,13 @@ async fn main() {
 
 -r | --remove => Removes the supplied id from the db (use --list to get the id): rlsd --remove <ID>    
 
--rr | --remove-remote => (admin only) Removes the supplied id from the db on the configured server (use -rl to get the id): rlsd -rl <ID>
+-rrm | --remove-remote => (admin only) Removes the supplied id from the db on the configured server (use -rl to get the id):
+    rlsd -rl <ID>
 
 -rl | --remote-list => (admin only) Lists all the devices on the server and their ids (does not include admin ids for security)
+
+-rr | --remove-rename => (admin only) Renames the supplied id's device name on every row on the server's database (use -rl to get the id):
+                rlsd -rr <ID> <NAME>
 
 --config => Configure the server address and device name of the client:
     rlsd --config <name, server-addr> <value>"
@@ -75,14 +79,14 @@ async fn main() {
             }
         }
         // Remove a device on the remote server (admin) 
-        "-rr" | "--remove-remote" => {
+        "-rrm" | "--remove-remote" => {
             let removed_device_id = match args.get(2) {
                 Some(id) => id,
                 None => return
             };
 
             let payload = json!({
-                "deviceID": sha256::digest(read_client_config_json("deviceID")),
+                "deviceID": sha256::digest(read_client_config_string("deviceID")),
                 "removedDeviceID": removed_device_id
             });
 
@@ -90,10 +94,30 @@ async fn main() {
         }
         // List the devices on the remote server (admin)
         "-rl" | "--remote-list" => {
-            let sha_device_id = sha256::digest(read_client_config_json("deviceID"));
+            let sha_device_id = sha256::digest(read_client_config_string("deviceID"));
 
             println!("{}", client::send(Commands::LIST, json!({"deviceID": sha_device_id})));
         }
+        "-rr" | "--remote-rename" => {
+            let sha_device_id = sha256::digest(read_client_config_string("deviceID"));
+
+            if args.len() < 3 {
+                println!("Not enough arguments, please read the help message");
+            } 
+
+            let renamed_device_id = args.get(2).unwrap();
+
+            let device_name = args.get(3).unwrap();
+
+            let payload = json!({
+                "deviceID": sha_device_id,
+                "renamedDeviceID": renamed_device_id,
+                "deviceName": device_name
+            });
+
+            println!("{}", client::send(Commands::AdminRename, payload))
+        }
+
         // Configure settings for the client
         "--config" => {
             match args.get(2).map_or("", |v| v) {
@@ -102,7 +126,7 @@ async fn main() {
                         Some(device_name) => {
                             json_handler::write_client_config("deviceName", Value::String(device_name.to_owned()));
 
-                            let device_id = json_handler::read_client_config_json("deviceID");
+                            let device_id = json_handler::read_client_config_string("deviceID");
 
                             let payload = json!({
                                 "deviceID": device_id,
@@ -155,7 +179,7 @@ async fn main() {
             let db_clone = database.clone();
 
             let receiver_handle = tokio::spawn(async move {
-                let mut receiver = Receiver::new(db_clone, false);
+                let mut receiver = Server::new(db_clone, false);
                 receiver.start().await.unwrap();
             });
 
@@ -167,7 +191,7 @@ async fn main() {
         }
         // Start the server with no TUI
         "-st" | "--server-notui" => {
-            let mut receiver = Receiver::new(database, true);
+            let mut receiver = Server::new(database, true);
             receiver.start().await.unwrap();
 
             loop {}
