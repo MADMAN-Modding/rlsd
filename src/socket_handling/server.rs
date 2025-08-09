@@ -6,6 +6,7 @@ use base64::{Engine, engine::general_purpose};
 use serde_json::Value;
 use sqlx::{Pool, Sqlite};
 use tokio::time::sleep;
+use whoami::Arch;
 
 use crate::{
     config::server::ServerConfig as ServerConfig, constants::get_server_config_path, json_handler::{self, write_server_config_all, ToDevice, ToServerConfig}, socket_handling::command_type::{CommandTraits, Commands}, stats_handling::{database, device_info::get_device_id, stats_getter}
@@ -171,6 +172,7 @@ impl Server {
             Commands::SETUP 		=> self.setup(stream).await,
             Commands::REMOVE 		=> self.remove_device(stream, payload).await,
             Commands::LIST 			=> self.list(stream, payload).await,
+            Commands::UpdateServer  => self.update_server(stream, payload).await,
             Commands::EXIT 			=> self.exit(),
             _ => self.error(),
         }
@@ -213,10 +215,7 @@ impl Server {
             };
         }
 
-        match stream.write_all("Failed to insert data".as_bytes()) {
-            Ok(v) => v,
-            _ => {}
-        }
+        self.msg_client(stream, "Failed to insert data");
     }
 
     /// Renames the supplied device id on the DB
@@ -234,7 +233,7 @@ impl Server {
         stream.write_all(result.as_bytes()).unwrap();
     }
 
-    async fn admin_rename(&mut self, mut stream: TcpStream, mut payload: Value) {
+    async fn admin_rename(&mut self, stream: TcpStream, mut payload: Value) {
         let device_id = json_handler::read_json_from_buf("deviceID", &payload);
 
         if self.admin_check(&device_id) {
@@ -242,10 +241,7 @@ impl Server {
 
             self.rename(stream, payload).await;
         } else {
-            match stream.write_all("You're not allowed to do that".as_bytes()) {
-                Ok(s) => s,
-                Err(e) => if self.print {println!("{e}")}
-            }
+            self.msg_client(stream, "You're not allowed to do that");
         }
     }
 
@@ -293,7 +289,7 @@ impl Server {
             if self.print {
                 println!("{device_id} tried to remove device data without permission")
             }
-            stream.write_all("You can't do that".as_bytes()).unwrap();
+            self.msg_client(stream, "You're not allowed to do that.");
         }
     }
 
@@ -304,10 +300,7 @@ impl Server {
     /// * `payload: Value` - Payload sent by the client
     async fn list(&mut self, mut stream: TcpStream, payload: Value) {
         if !self.admin_check(payload["deviceID"].as_str().unwrap()) {
-            match stream.write_all("You aren't allow to do that".as_bytes()) {
-                Ok(s) => s,
-                Err(e) => if self.print {println!("{e}")}
-            }
+            self.msg_client(stream, "You're not allowed to do that.");
             return;
         }
 
@@ -335,18 +328,64 @@ impl Server {
         }
     }
 
+    /// Updates the rlsd version on the server
+    /// 
+    /// # Arguments
+    /// * `mut stream: TcpStream` - Stream the client is connected to
+    /// * `payload: Value` - Payload sent by the client
+    async fn update_server(&mut self, stream: TcpStream, payload: Value) {
+        if !self.admin_check(&json_handler::read_json_from_buf("deviceID", &payload)) {
+            self.msg_client(stream, "You're not allowed to do that.");
+            return;
+        }
+
+        let arch = whoami::arch();
+        let platform = whoami::platform();
+
+        let binary_location = std::env::current_exe().unwrap();
+        let binary_location = binary_location.to_str().unwrap(); 
+
+        let result = match arch {
+            Arch::X64 => {
+                if platform == whoami::Platform::Linux {
+                    download("linux/rlsd-musl", binary_location)
+                } else if platform == whoami::Platform::Windows {
+                    download("windows/rlsd-x86-64", binary_location)
+                } else {
+                    Ok(())
+                }
+            },
+            Arch::Arm64 => {
+                if platform == whoami::Platform::Linux {
+                    download("linux/rlsd-aarch64", binary_location)
+                } else {
+                    Ok(())
+                }
+            }
+            
+            _ => Ok(())
+        };
+
+        match result {
+            Ok(_) => self.msg_client(stream, "Update success"),
+            Err(e) => {if self.print {
+                println!("{e}")
+            }}
+        };
+    }
+
     /// Makes a new id for the requesting device
     /// 
     /// # Arguments
     /// * `mut stream: TcpStream` - Stream the client is connected to
-    async fn setup(&mut self, mut stream: TcpStream) {
+    async fn setup(&mut self, stream: TcpStream) {
         let id = get_device_id().await;
 
         self.config.registered_device_ids.push(id.clone());
 
         write_server_config_all(self.config.to_json());
 
-        stream.write_all(id.as_bytes()).unwrap();
+        self.msg_client(stream, &id);
     }
 
     /// Checks to see if the supplied sha256 id is an admin
@@ -363,4 +402,22 @@ impl Server {
             false
         }
     }
+
+    fn msg_client(&mut self, mut stream: TcpStream, msg: &str) {
+        match stream.write_all(msg.as_bytes()) {
+            Ok(s) => s,
+            Err(e) => if self.print {println!("{e}")}       
+        }
+    }
+}
+
+fn download(_version: &str, _file_path: &str) -> Result<(), Box<dyn std::error::Error>> {
+    // let url = "http://raw.githubusercontent.com/MADMAN-Modding/rlsd/refs/heads/master/bin/";
+
+    // let response = blocking::get(&format!("{url}{version}"))?;
+    // let mut dest = File::create(file_path)?;
+    // let content = response.bytes()?;
+    // std::io::copy(&mut content.as_ref(), &mut dest)?;
+    
+    Ok(())
 }

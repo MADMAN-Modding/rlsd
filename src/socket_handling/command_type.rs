@@ -13,6 +13,8 @@ pub enum Commands {
     REMOVE,
     /// List devices on the server
     LIST,
+    /// Updates the server
+    UpdateServer,
     /// Stop the server
     EXIT,
     /// Error, command probably wasn't found
@@ -28,6 +30,7 @@ impl Commands {
             Commands::SETUP         => "SETUP!",
             Commands::REMOVE        => "REMOVE!",
             Commands::LIST          => "LIST!",
+            Commands::UpdateServer  => "UpdateServer!",
             Commands::EXIT          => "EXIT!",
             Commands::ERROR         => "ERROR!",
         }
@@ -47,6 +50,7 @@ impl CommandTraits for String {
             "SETUP"         => Commands::SETUP,
             "REMOVE"        => Commands::REMOVE,
             "LIST"          => Commands::LIST,
+            "UpdateServer"  => Commands::UpdateServer,
             "EXIT"          => Commands::EXIT,
             _               => Commands::ERROR,
         }
@@ -62,6 +66,7 @@ impl CommandTraits for str {
             "SETUP"         => Commands::SETUP,
             "REMOVE"        => Commands::REMOVE,
             "LIST"          => Commands::LIST,
+            "UpdateServer"  => Commands::UpdateServer,
             "EXIT"          => Commands::EXIT,
             _               => Commands::ERROR,
         }
