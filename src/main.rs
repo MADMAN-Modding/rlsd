@@ -81,6 +81,11 @@ async fn main() {
 
             println!("{}", data_sender::send(Commands::REMOVE, payload));
         }
+        "-rl" | "--remote-list" => {
+            let sha_device_id = sha256::digest(read_client_config_json("deviceID"));
+
+            println!("{}", data_sender::send(Commands::LIST, json!({"deviceID": sha_device_id})));
+        }
         "--config" => {
             match args.get(2).map_or("", |v| v) {
                 "name" => {

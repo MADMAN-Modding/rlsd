@@ -157,6 +157,7 @@ impl Receiver {
             Commands::RENAME => self.rename(stream, json).await,
             Commands::SETUP => self.setup(stream).await,
             Commands::REMOVE => self.remove_device(stream, json).await,
+            Commands::LIST => self.list(stream, json).await,
             Commands::EXIT => self.exit(),
             _ => self.error(),
         }
@@ -222,7 +223,7 @@ impl Receiver {
         if device_id == "N/A" {return;}
 
         // If that sha256 exists in the admin list, continue
-        if self.config.admin_ids.contains(&device_id.to_string()) {
+        if self.admin_check(device_id) {
             let removed_device_id = json["removedDeviceID"].as_str().unwrap();
 
             let msg = database::remove_device(&self.database, removed_device_id).await;
@@ -256,6 +257,29 @@ impl Receiver {
         }
     }
 
+    async fn list(&mut self, mut stream: TcpStream, json: Value) {
+        if !self.admin_check(json["deviceID"].as_str().unwrap()) {
+            match stream.write_all("You aren't allow to do that".as_bytes()) {
+                Ok(s) => s,
+                Err(e) => if self.print {println!("{e}")}
+            }
+            return;
+        }
+
+        let ids = database::get_all_device_uids(&self.database).await;
+
+        let mut msg = String::new();
+
+        for id in ids {
+            msg = format!("{msg}\n{}: {}", database::get_device_name_from_uid(&self.database, &id).await, id)
+        } 
+
+        match stream.write_all(msg.as_bytes()) {
+            Ok(s) => s,
+            Err(e) => if self.print {eprintln!("{e}")}
+        }
+    }
+
     fn error(&mut self) {
         eprintln!("Command not recognized!")
     }
@@ -268,5 +292,13 @@ impl Receiver {
         write_server_config_all(self.config.to_json());
 
         stream.write_all(id.as_bytes()).unwrap();
+    }
+
+    fn admin_check(&mut self, id: &str) -> bool {
+        if self.config.admin_ids.contains(&id.to_string()) {
+            true
+        } else {
+            false
+        }
     }
 }
