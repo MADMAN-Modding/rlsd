@@ -6,7 +6,7 @@ pub enum Commands {
     /// Rename device
     RENAME,
     /// Rename a device remotely
-    AdminRename,
+    ADMINRENAME,
     /// Get device_id for new client
     SETUP,
     /// Remove a device
@@ -14,7 +14,7 @@ pub enum Commands {
     /// List devices on the server
     LIST,
     /// Updates the server
-    UpdateServer,
+    UPDATESERVER,
     /// Stop the server
     EXIT,
     /// Error, command probably wasn't found
@@ -26,11 +26,11 @@ impl Commands {
         match self {
             Commands::INPUT         => "INPUT!",
             Commands::RENAME        => "RENAME!",
-            Commands::AdminRename   => "AdminRename!",
+            Commands::ADMINRENAME   => "ADMINRENAME!",
             Commands::SETUP         => "SETUP!",
             Commands::REMOVE        => "REMOVE!",
             Commands::LIST          => "LIST!",
-            Commands::UpdateServer  => "UpdateServer!",
+            Commands::UPDATESERVER  => "UPDATESERVER!",
             Commands::EXIT          => "EXIT!",
             Commands::ERROR         => "ERROR!",
         }
@@ -46,11 +46,11 @@ impl CommandTraits for String {
         match self.replace("!", "").as_str() {
             "INPUT"         => Commands::INPUT,
             "RENAME"        => Commands::RENAME,
-            "AdminRename"   => Commands::AdminRename,
+            "ADMINRENAME"   => Commands::ADMINRENAME,
             "SETUP"         => Commands::SETUP,
             "REMOVE"        => Commands::REMOVE,
             "LIST"          => Commands::LIST,
-            "UpdateServer"  => Commands::UpdateServer,
+            "UPDATESERVER"  => Commands::UPDATESERVER,
             "EXIT"          => Commands::EXIT,
             _               => Commands::ERROR,
         }
@@ -62,11 +62,11 @@ impl CommandTraits for str {
         match self.replace("!", "").as_str() {
             "INPUT"         => Commands::INPUT,
             "RENAME"        => Commands::RENAME,
-            "AdminRename"   => Commands::AdminRename,
+            "ADMINRENAME"   => Commands::ADMINRENAME,
             "SETUP"         => Commands::SETUP,
             "REMOVE"        => Commands::REMOVE,
             "LIST"          => Commands::LIST,
-            "UpdateServer"  => Commands::UpdateServer,
+            "UPDATESERVER"  => Commands::UPDATESERVER,
             "EXIT"          => Commands::EXIT,
             _               => Commands::ERROR,
         }

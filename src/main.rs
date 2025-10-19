@@ -115,7 +115,7 @@ async fn main() {
                 "deviceName": device_name
             });
 
-            println!("{}", client::send(Commands::AdminRename, payload))
+            println!("{}", client::send(Commands::ADMINRENAME, payload))
         }
 
         // Configure settings for the client

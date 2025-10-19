@@ -168,11 +168,11 @@ impl Server {
         match command.to_command() {
             Commands::INPUT         => self.input(stream, payload).await,
             Commands::RENAME        => self.rename(stream, payload).await,
-            Commands::AdminRename   => self.admin_rename(stream, payload).await,
+            Commands::ADMINRENAME   => self.admin_rename(stream, payload).await,
             Commands::SETUP 		=> self.setup(stream).await,
             Commands::REMOVE 		=> self.remove_device(stream, payload).await,
             Commands::LIST 			=> self.list(stream, payload).await,
-            Commands::UpdateServer  => self.update_server(stream, payload).await,
+            Commands::UPDATESERVER  => self.update_server(stream, payload).await,
             Commands::EXIT 			=> self.exit(),
             _ => self.error(),
         }
