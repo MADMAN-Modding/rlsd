@@ -1,6 +1,9 @@
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use std::{
-    collections::HashMap, io::{Read, Write}, net::{TcpListener, TcpStream}, time::Duration
+    collections::HashMap, time::Duration
 };
+
+use tokio::net::{TcpListener, TcpStream};
 
 use base64::{Engine, engine::general_purpose};
 use serde_json::Value;
@@ -9,7 +12,7 @@ use tokio::time::sleep;
 use whoami::Arch;
 
 use crate::{
-    config::server::ServerConfig as ServerConfig, constants::get_server_config_path, json_handler::{self, write_server_config_all, ToDevice, ToServerConfig}, socket_handling::command_type::{CommandTraits, Commands}, stats_handling::{database, device_info::get_device_id, stats_getter}
+    config::server::ServerConfig as ServerConfig, constants::{self, get_db_path, get_server_config_path}, file_transfer::send::send_file, json_handler::{self, write_server_config_all, ToDevice, ToServerConfig}, socket_handling::command_type::{CommandTraits, Commands}, stats_handling::{database, device_info::get_device_id, stats_getter}
 };
 
 #[derive(Clone)]
@@ -46,7 +49,7 @@ impl Server {
     }
 
     /// Starts the socket
-    pub async fn start(&mut self) -> std::io::Result<()> {
+    pub async fn start(&mut self) -> Result<(), anyhow::Error> {
         if self.config.admin_ids.is_empty() && self.print {
             println!("No admin devices found, please add at least one to allow for server management");
             sleep(Duration::from_secs(1)).await;
@@ -64,9 +67,9 @@ impl Server {
             write_server_config_all(self.config.to_json());
         }
 
-        match TcpListener::bind("0.0.0.0:51347") {
+        match TcpListener::bind("0.0.0.0:51347").await {
             Ok(listener) => self.handle_connection(listener).await,
-            Err(e) => return Err(e),
+            Err(e) => return Err(e.into()),
         };
 
         Ok(())
@@ -79,11 +82,11 @@ impl Server {
     /// # Arguments
     /// * `listener: TcpListener` - Listener for incoming connections
     async fn handle_connection(&mut self, listener: TcpListener) {
-        for stream in listener.incoming() {
+        loop {
             // If the incoming traffic is valid then process it, otherwise print an error and continue to the next loop
-            match stream {
+            match listener.accept().await {
                 Ok(stream) => {
-                    self.process_request(stream).await;
+                    self.process_request(stream.0).await;
                 }
                 Err(e) => {
                     if self.print {
@@ -112,10 +115,10 @@ impl Server {
     /// * `mut stream: TcpStream` - Stream the client is connected to
     async fn process_request(&mut self, mut stream: TcpStream) {
         // Makes the buffer to store the data
-        let mut buf = [0; 1024];
+        let mut buf = [0; constants::BUFFER_SIZE];
 
         // Read the data from teh stream
-        stream.read(&mut buf).unwrap();
+        stream.read(&mut buf).await.unwrap();
 
         // Raw string data
         let raw_string = String::from_utf8_lossy(&buf).trim().to_string();
@@ -172,7 +175,8 @@ impl Server {
             Commands::SETUP 		=> self.setup(stream).await,
             Commands::REMOVE 		=> self.remove_device(stream, payload).await,
             Commands::LIST 			=> self.list(stream, payload).await,
-            Commands::UPDATESERVER  => self.update_server(stream, payload).await,
+            Commands::UpdateServer  => self.update_server(stream, payload).await,
+            Commands::DownloadDatabase => self.download_database(stream, payload).await,
             Commands::EXIT 			=> self.exit(),
             _ => self.error(),
         }
@@ -209,13 +213,13 @@ impl Server {
             
             database::input_data(&self.database, device).await.ok();
 
-            match stream.write_all("Data inserted".as_bytes()) {
+            match stream.write_all("Data inserted".as_bytes()).await {
                 Ok(v) => v,
                 _ => {}
             };
         }
 
-        self.msg_client(stream, "Failed to insert data");
+        self.msg_client(stream, "Failed to insert data").await;
     }
 
     /// Renames the supplied device id on the DB
@@ -230,7 +234,7 @@ impl Server {
 
         let result = database::rename_device(&self.database, &device_id, &device_name).await;
 
-        stream.write_all(result.as_bytes()).unwrap();
+        stream.write_all(result.as_bytes()).await.unwrap();
     }
 
     async fn admin_rename(&mut self, stream: TcpStream, mut payload: Value) {
@@ -241,7 +245,7 @@ impl Server {
 
             self.rename(stream, payload).await;
         } else {
-            self.msg_client(stream, "You're not allowed to do that");
+            self.msg_client(stream, "You're not allowed to do that").await;
         }
     }
 
@@ -281,7 +285,7 @@ impl Server {
             write_server_config_all(self.config.to_json());
 
             // Try to send a message back to the client
-            match stream.write_all(msg.as_bytes()) {
+            match stream.write_all(msg.as_bytes()).await {
                 Ok(s) => s,
                 Err(e) => if self.print {eprintln!("{e}")}
             }
@@ -289,7 +293,7 @@ impl Server {
             if self.print {
                 println!("{device_id} tried to remove device data without permission")
             }
-            self.msg_client(stream, "You're not allowed to do that.");
+            self.msg_client(stream, "You're not allowed to do that.").await;
         }
     }
 
@@ -300,7 +304,7 @@ impl Server {
     /// * `payload: Value` - Payload sent by the client
     async fn list(&mut self, mut stream: TcpStream, payload: Value) {
         if !self.admin_check(payload["deviceID"].as_str().unwrap()) {
-            self.msg_client(stream, "You're not allowed to do that.");
+            self.msg_client(stream, "You're not allowed to do that.").await;
             return;
         }
 
@@ -315,7 +319,7 @@ impl Server {
             }
         }
 
-        match stream.write_all(msg.as_bytes()) {
+        match stream.write_all(msg.as_bytes()).await {
             Ok(s) => s,
             Err(e) => if self.print {eprintln!("{e}")}
         }
@@ -335,7 +339,7 @@ impl Server {
     /// * `payload: Value` - Payload sent by the client
     async fn update_server(&mut self, stream: TcpStream, payload: Value) {
         if !self.admin_check(&json_handler::read_json_from_buf("deviceID", &payload)) {
-            self.msg_client(stream, "You're not allowed to do that.");
+            self.msg_client(stream, "You're not allowed to do that.").await;
             return;
         }
 
@@ -367,7 +371,7 @@ impl Server {
         };
 
         match result {
-            Ok(_) => self.msg_client(stream, "Update success"),
+            Ok(_) => self.msg_client(stream, "Update success").await,
             Err(e) => {if self.print {
                 println!("{e}")
             }}
@@ -385,7 +389,7 @@ impl Server {
 
         write_server_config_all(self.config.to_json());
 
-        self.msg_client(stream, &id);
+        self.msg_client(stream, &id).await;
     }
 
     /// Checks to see if the supplied sha256 id is an admin
@@ -403,15 +407,27 @@ impl Server {
         }
     }
 
-    fn msg_client(&mut self, mut stream: TcpStream, msg: &str) {
-        match stream.write_all(msg.as_bytes()) {
+    async fn msg_client(&mut self, mut stream: TcpStream, msg: &str) {
+        match stream.write_all(msg.as_bytes()).await {
             Ok(s) => s,
             Err(e) => if self.print {println!("{e}")}       
         }
     }
+
+    async fn download_database(&mut self, stream: TcpStream, payload: Value) {
+        let db_path = get_db_path();
+
+        let uid = payload["deviceID"].to_string();
+
+        if !self.admin_check(&uid) {
+            return;
+        }
+
+        send_file(stream, &db_path).await;
+    }
 }
 
-fn download(_version: &str, _file_path: &str) -> Result<(), Box<dyn std::error::Error>> {
+fn download(_version: &str, _file_path: &str) -> Result<(), anyhow::Error> {
     // let url = "http://raw.githubusercontent.com/MADMAN-Modding/rlsd/refs/heads/master/bin/";
 
     // let response = blocking::get(&format!("{url}{version}"))?;

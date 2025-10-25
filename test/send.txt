@@ -1,0 +1,1 @@
+Hi, this is a message that will be sent in order to test that the file transfer function is working properly, I hope that is understood and that I put this in an ok spot.

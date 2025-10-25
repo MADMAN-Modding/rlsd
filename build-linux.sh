@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Written in [Amber](https://amber-lang.com/)
 # version: 0.4.0-alpha
-# date: 2025-08-01 20:20:11
+# date: 2025-10-22 13:09:52
 
 dir_exists__32_v0() {
     local path=$1

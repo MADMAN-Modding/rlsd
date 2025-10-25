@@ -4,12 +4,20 @@ pub mod config {
 }
 
 pub mod constants;
+pub mod encryption;
+
+pub mod file_transfer {
+    pub mod receive;
+    pub mod send;
+    pub mod tests;
+}
+
 pub mod macros;
 
 pub mod socket_handling {
+    pub mod client;
     pub mod command_type;
     pub mod server;
-    pub mod client;
 }
 
 pub mod stats_handling {

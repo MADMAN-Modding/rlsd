@@ -12,12 +12,12 @@ use crate::{
 };
 
 pub async fn start_stats_loop() {
-    let result = thread::spawn(|| {
+    let result = thread::spawn(async || {
         let device_id = read_client_config_string("deviceID");
 
         let device_name = read_client_config_string("deviceName");
 
-        loop {
+        async {loop {
             let sys = &System::new();
 
             let device = Device::new(
@@ -32,14 +32,14 @@ pub async fn start_stats_loop() {
                 get_unix_timestamp(),
             );
 
-            client::send(Commands::INPUT, device.to_json());
+            client::send(Commands::INPUT, device.to_json()).await;
             thread::sleep(Duration::from_secs(LOOP_TIME_SECONDS));
-        }
+        }}.await
     })
     .join();
 
     match result {
-        Ok(v) => v,
+        Ok(v) => v.await,
         Err(e) => println!("{:?}", e)
     }
     

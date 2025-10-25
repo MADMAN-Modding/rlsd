@@ -2,16 +2,10 @@ use std::env;
 
 use crossterm::style::Stylize;
 use rlsd::{
-    config::client::ClientConfig,
-    constants::{self, get_client_config_path, get_server_config_path},
-    input,
-    json_handler::{self, read_client_config_string, read_json_as_value, write_json_from_value, write_server_config},
-    socket_handling::{self, command_type::Commands, server::Server, client},
-    stats_handling::{
+    config::client::ClientConfig, constants::{self, get_client_config_path, get_server_config_path}, encryption, input, json_handler::{self, read_client_config_string, read_json_as_value, write_json_from_value, write_server_config}, socket_handling::{self, client, command_type::Commands, server::Server}, stats_handling::{
         database::{self, get_all_device_uids, get_device_name_from_uid},
         stats_loop,
-    },
-    tui,
+    }, tui
 };
 use serde_json::{json, Value};
 
@@ -55,6 +49,8 @@ async fn main() {
 -rr | --remove-rename => (admin only) Renames the supplied id's device name on every row on the server's database (use -rl to get the id):
                 rlsd -rr <ID> <NAME>
 
+-dd | --download-database => (admin only) Download the database from the server, will use encryption to ensure data cannot be seen by man-in-the-middle attacks
+
 --config => Configure the server address and device name of the client:
     rlsd --config <name, server-addr> <value>"
             )
@@ -68,7 +64,7 @@ async fn main() {
             }
         }
         // Setup, sets the client config and gets the uid
-        "--setup" => setup(),
+        "--setup" => setup().await,
         // Client, 1 minute loops for sending data
         "-c" | "--client" => stats_loop::start_stats_loop().await,
         // Remove, removes the supplied id from the local database
@@ -90,13 +86,13 @@ async fn main() {
                 "removedDeviceID": removed_device_id
             });
 
-            println!("{}", client::send(Commands::REMOVE, payload));
+            println!("{}", client::send(Commands::REMOVE, payload).await);
         }
         // List the devices on the remote server (admin)
         "-rl" | "--remote-list" => {
             let sha_device_id = sha256::digest(read_client_config_string("deviceID"));
 
-            println!("{}", client::send(Commands::LIST, json!({"deviceID": sha_device_id})));
+            println!("{}", client::send(Commands::LIST, json!({"deviceID": sha_device_id})).await);
         }
         "-rr" | "--remote-rename" => {
             let sha_device_id = sha256::digest(read_client_config_string("deviceID"));
@@ -115,7 +111,29 @@ async fn main() {
                 "deviceName": device_name
             });
 
-            println!("{}", client::send(Commands::ADMINRENAME, payload))
+            println!("{}", client::send(Commands::ADMINRENAME, payload).await)
+        }
+
+        "-dd" | "--download_database" => {
+            let sha_device_id = sha256::digest(read_client_config_string("deviceID"));
+
+            let keys = match encryption::gen_keys() {
+                Ok(keys) => keys,
+                Err(e) => {println!("Error generating encryption keys: {}", e); return;}
+            };
+
+            let encrypted_aes_keys = encryption::rsa_encrypt_aes_keys(keys.rng, keys.rsa_pub_key, keys.aes_key, keys.aes_nonce).expect("Error encrypting AES keys");   
+            
+            println!("{}", encrypted_aes_keys.len());
+
+            let payload = json!({
+                "deviceID": sha_device_id,
+                "encryptedAESKeys": encrypted_aes_keys,
+                
+            });
+
+            client::send(Commands::DownloadDatabase, payload).await;
+
         }
 
         // Configure settings for the client
@@ -133,7 +151,7 @@ async fn main() {
                                 "deviceName": device_name
                             });
 
-                            let msg = client::send(Commands::RENAME, payload);
+                            let msg = client::send(Commands::RENAME, payload).await;
 
                             println!("{msg}")
 
@@ -201,7 +219,7 @@ async fn main() {
 }
 
 /// This function is used to setup a new device to connect to a server
-pub fn setup() {
+pub async fn setup() {
     let device_name = input!("Name for your device to be shown: ");
 
     let mut server_addr = input!("IP of the server machine (No CIDR)");
@@ -210,7 +228,7 @@ pub fn setup() {
         server_addr = format!("{}:51347", server_addr);
     }
 
-    let device_id = socket_handling::client::setup(&server_addr);
+    let device_id = socket_handling::client::setup(&server_addr).await;
 
     let client_conf = ClientConfig::new(device_id, device_name, server_addr);
 
