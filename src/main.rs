@@ -132,7 +132,7 @@ async fn main() {
                 
             });
 
-            client::send(Commands::DownloadDatabase, payload).await;
+            client::download_database(payload).await.unwrap();
 
         }
 

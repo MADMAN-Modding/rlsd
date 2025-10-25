@@ -3,7 +3,7 @@ pub mod test {
     #[tokio::test]
     async fn test_transfer() {
         use crate::file_transfer::send::send_file;
-        use tokio::net::TcpListener;
+        use tokio::net::{TcpListener, TcpStream};
         use crate::file_transfer::receive::receive_file;
         // This is a placeholder for actual tests.
         // In a real-world scenario, you would use a testing framework
@@ -37,17 +37,11 @@ pub mod test {
         // Connect to server as client
         tokio::time::sleep(tokio::time::Duration::from_secs(1)).await; // Wait for server to start
 
-        let socket = TcpListener::bind("0.0.0.0:8080").await.unwrap();
+        let connection = TcpStream::connect("0.0.0.0:8080").await.unwrap();
 
-        loop {
-            match socket.accept().await {
-                Ok(socket) => {async {receive_file("test/received.txt", socket.0).await}.await; break},
-                Err(_) => todo!(),
-            }
-        }
 
+        receive_file("test/received.txt", connection).await;
         
-
         // Compare files
         let sent_file = tokio::fs::read("test/send.txt")
             .await

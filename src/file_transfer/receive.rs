@@ -6,7 +6,6 @@ use tokio::{
 
 use crate::constants;
 
-
 pub async fn receive_file(file_path: &str, connection: TcpStream) {
     let (mut reader, _writer) = connection.into_split();
 
@@ -17,16 +16,18 @@ pub async fn receive_file(file_path: &str, connection: TcpStream) {
     let mut buffer = [0; constants::BUFFER_SIZE];
 
     loop {
-        let bytes_read = reader
+        let bytes_read = match reader
             .read(&mut buffer)
-            .await
-            .expect("Unable to read data from stream.");
+            .await {
+                Ok(v) => v,
+                Err(e) => {println!("Error trying to receive data: {:?}", e); return;}
+            };
 
-        let msg = str::from_utf8(&buffer[..bytes_read])
-            .map(|s| s.to_ascii_lowercase())
-            .unwrap();
+        // let msg = str::from_utf8(&buffer[..bytes_read])
+        //     .map(|s| s.to_ascii_lowercase())
+        //     .unwrap();
 
-        println!("Received: {msg}");
+        // println!("Received: {msg}");
 
         if &buffer[..bytes_read] == b"TRANSFER_COMPLETE" {
             println!("File transfer complete.");

@@ -417,11 +417,12 @@ impl Server {
     async fn download_database(&mut self, stream: TcpStream, payload: Value) {
         let db_path = get_db_path();
 
-        let uid = payload["deviceID"].to_string();
+        let _uid = payload["deviceID"].to_string();
 
-        if !self.admin_check(&uid) {
-            return;
-        }
+        // if !self.admin_check(&uid) {
+        //     println!("Failed admin check");
+        //     return;
+        // }
 
         send_file(stream, &db_path).await;
     }

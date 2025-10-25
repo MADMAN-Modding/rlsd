@@ -3,6 +3,8 @@ use tokio::{fs::File, io::{AsyncReadExt, AsyncWriteExt, BufReader}, net::TcpStre
 use crate::constants;
 
 pub async fn send_file(mut stream: TcpStream, file_path: &str) {
+    println!("Sending File!");
+
     let file = File::open(file_path).await.expect("Unable to open file.");
 
     let mut reader = BufReader::new(file);

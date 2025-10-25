@@ -55,7 +55,9 @@ pub async fn download_database(payload: Value) -> Result<(), anyhow::Error> {
 
     // let mut buf = [0u8; constants::BUFFER_SIZE];
 
-    receive::receive_file("test.db", connection).await;
+    // println!("{}", connection.read(&mut buf).await.unwrap());
+
+    receive::receive_file("test.sqlite", connection).await;
 
     Ok(())
 }

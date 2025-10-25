@@ -14,7 +14,7 @@ pub const OUTLIER_THRESHOLD: f64 = 0.5;
 pub const DO_INTERPOLATION: bool = true;
 pub const INTERPOLATION_STEPS: u16 = 64;
 
-pub const BUFFER_SIZE: usize = 1024;
+pub const BUFFER_SIZE: usize = 4096;
 
 
 pub fn setup() {

@@ -4,3 +4,4 @@ Cargo.lock
 database.sqlite
 libs
 rlsd
+test.sqlite
