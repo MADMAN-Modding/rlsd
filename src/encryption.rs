@@ -19,7 +19,7 @@ fn _main() {
     let priv_key = RsaPrivateKey::new(&mut rng, bits).expect("failed to generate a key");
     let pub_key = RsaPublicKey::from(&priv_key);
 
-    let _ = rsa_encrypt_aes_keys(rng, pub_key, key.to_vec(), nonce.to_vec());
+    let _ = rsa_encrypt_aes_keys(pub_key, key.to_vec(), nonce.to_vec());
 
     _encrypt_small_file("src/main.rs", "src/main.rs.enc", &key, &nonce).unwrap();
 
@@ -31,9 +31,6 @@ fn _main() {
 pub struct EncryptionKeys {
     pub aes_key: Vec<u8>,
     pub aes_nonce: Vec<u8>,
-    pub rsa_priv_key: RsaPrivateKey,
-    pub rsa_pub_key: RsaPublicKey,
-    pub rng: OsRng,
 }
 
 pub fn gen_keys() -> Result<EncryptionKeys, anyhow::Error> {
@@ -42,21 +39,12 @@ pub fn gen_keys() -> Result<EncryptionKeys, anyhow::Error> {
     OsRng.fill_bytes(&mut key);
     OsRng.fill_bytes(&mut nonce);
 
-    let mut rng = OsRng;
-    let bits = 2048;
-
-    let rsa_priv_key = RsaPrivateKey::new(&mut rng, bits)?;
-    let rsa_pub_key = RsaPublicKey::from(rsa_priv_key.clone());
-
     let aes_key = key.to_vec();
     let aes_nonce = nonce.to_vec();
 
     let encryption_keys = EncryptionKeys {
         aes_key,
         aes_nonce,
-        rsa_priv_key,
-        rsa_pub_key,
-        rng,
     };
 
     Ok(encryption_keys)
@@ -119,12 +107,13 @@ fn _decrypt_small_file_with_rsa_key(
 
 /// Uses RSA public key to encrypt the AES key and nonce
 pub fn rsa_encrypt_aes_keys(
-    mut rng: OsRng,
     pub_key: RsaPublicKey,
     key: Vec<u8>,
     nonce: Vec<u8>,
 ) -> Result<Vec<u8>, anyhow::Error> {
     println!("Encrypting via RSA");
+
+    let mut rng = OsRng;
 
     // Encrypt each piece separately
     let key_enc = pub_key

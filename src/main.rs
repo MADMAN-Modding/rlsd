@@ -7,6 +7,7 @@ use rlsd::{
         stats_loop,
     }, tui
 };
+use rsa::{pkcs1::DecodeRsaPublicKey, RsaPublicKey};
 use serde_json::{json, Value};
 
 #[tokio::main]
@@ -122,7 +123,17 @@ async fn main() {
                 Err(e) => {println!("Error generating encryption keys: {}", e); return;}
             };
 
-            let encrypted_aes_keys = encryption::rsa_encrypt_aes_keys(keys.rng, keys.rsa_pub_key, keys.aes_key, keys.aes_nonce).expect("Error encrypting AES keys");   
+            let payload = json!({
+                "deviceID": sha_device_id
+            });
+
+            let payload = client::send(Commands::RequestPublicKey, payload).await;
+
+            println!("{}", payload);
+
+            let rsa_pub_key = RsaPublicKey::from_pkcs1_pem(&payload).unwrap();
+
+            let encrypted_aes_keys = encryption::rsa_encrypt_aes_keys(rsa_pub_key, keys.aes_key, keys.aes_nonce).expect("Error encrypting AES keys");   
             
             println!("{}", encrypted_aes_keys.len());
 

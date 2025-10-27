@@ -1,3 +1,5 @@
+use rand::{rngs::OsRng};
+use rsa::{pkcs1::EncodeRsaPublicKey, RsaPrivateKey, RsaPublicKey};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use std::{
     collections::HashMap, time::Duration
@@ -27,7 +29,9 @@ pub struct Server {
     /// `HashMap<String, i64>` - Keeps track of when devices are sending data so it can't be spammed
     device_times: HashMap<String, i64>,
     /// `Server` - The server's config as an instance of `Server`
-    config: ServerConfig
+    config: ServerConfig,
+    /// `RsaPrivateKey` - Key used to decrypt the sent AES keys
+    rsa_priv_key: RsaPrivateKey
 }
 
 impl Server {
@@ -39,12 +43,15 @@ impl Server {
     pub fn new(database: Pool<Sqlite>, print: bool) -> Server {
         let config = json_handler::read_json_as_value(&get_server_config_path()).to_server();
 
+        let mut rng =  OsRng;
+
         Server {
             exit: false,
             database: database,
             print,
             device_times: HashMap::new(),
-            config
+            config,
+            rsa_priv_key: RsaPrivateKey::new(&mut rng, 2048).unwrap()
         }
     }
 
@@ -167,7 +174,6 @@ impl Server {
             }
         };
 
-        // Match the command to the Commands enum
         match command.to_command() {
             Commands::INPUT         => self.input(stream, payload).await,
             Commands::RENAME        => self.rename(stream, payload).await,
@@ -177,6 +183,7 @@ impl Server {
             Commands::LIST 			=> self.list(stream, payload).await,
             Commands::UpdateServer  => self.update_server(stream, payload).await,
             Commands::DownloadDatabase => self.download_database(stream, payload).await,
+            Commands::RequestPublicKey => self.request_rsa_key(stream, payload).await,
             Commands::EXIT 			=> self.exit(),
             _ => self.error(),
         }
@@ -425,6 +432,20 @@ impl Server {
         // }
 
         send_file(stream, &db_path).await;
+    }
+
+    async fn request_rsa_key(&mut self, mut stream: TcpStream, payload: Value) {
+        let mut rng = OsRng;
+
+        if self.admin_check(&json_handler::read_json_from_buf("deviceID", &payload)) {
+            let rsa_priv_key = RsaPrivateKey::new(&mut rng, 2048).unwrap();
+
+            let rsa_public_key = RsaPublicKey::from(&rsa_priv_key);
+
+            self.rsa_priv_key = rsa_priv_key;
+
+            stream.write_all(rsa_public_key.to_pkcs1_pem(rsa::pkcs8::LineEnding::CRLF).unwrap().as_bytes()).await.unwrap();
+        }
     }
 }
 

@@ -17,6 +17,8 @@ pub enum Commands {
     UpdateServer,
     /// Downloads the database from the server (admin)
     DownloadDatabase,
+    /// Requests for a public key to be sent
+    RequestPublicKey,
     /// Stop the server
     EXIT,
     /// Error, command probably wasn't found
@@ -33,7 +35,8 @@ impl Commands {
             Commands::REMOVE            => "REMOVE!",
             Commands::LIST              => "LIST!",
             Commands::UpdateServer      => "UPDATE_SERVER!",
-            Commands::DownloadDatabase   => "DOWNLOAD_DATABASE!",
+            Commands::DownloadDatabase  => "DOWNLOAD_DATABASE!",
+            Commands::RequestPublicKey  => "REQUEST_PUBLIC_KEY!",
             Commands::EXIT              => "EXIT!",
             Commands::ERROR             => "ERROR!",
         }
@@ -53,8 +56,9 @@ impl CommandTraits for String {
             "SETUP"             => Commands::SETUP,
             "REMOVE"            => Commands::REMOVE,
             "LIST"              => Commands::LIST,
-            "UPDATE_SERVER"      => Commands::UpdateServer,
-            "DOWNLOAD_DATABASE"   => Commands::DownloadDatabase,
+            "UPDATE_SERVER"     => Commands::UpdateServer,
+            "DOWNLOAD_DATABASE" => Commands::DownloadDatabase,
+            "REQUEST_PUBLIC_KEY"=> Commands::RequestPublicKey,
             "EXIT"              => Commands::EXIT,
             _                   => Commands::ERROR,
         }
@@ -70,8 +74,9 @@ impl CommandTraits for str {
             "SETUP"             => Commands::SETUP,
             "REMOVE"            => Commands::REMOVE,
             "LIST"              => Commands::LIST,
-            "UPDATE_SERVER"      => Commands::UpdateServer,
-            "DOWNLOAD_DATABASE"   => Commands::DownloadDatabase,
+            "UPDATE_SERVER"     => Commands::UpdateServer,
+            "DOWNLOAD_DATABASE" => Commands::DownloadDatabase,
+            "REQUEST_PUBLIC_KEY"=> Commands::RequestPublicKey,
             "EXIT"              => Commands::EXIT,
             _                   => Commands::ERROR,
         }
