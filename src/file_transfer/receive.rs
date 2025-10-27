@@ -4,9 +4,9 @@ use tokio::{
     net::{TcpStream},
 };
 
-use crate::constants;
+use crate::{constants, encryption::{decrypt_small_file, EncryptionKeys}};
 
-pub async fn receive_file(file_path: &str, connection: TcpStream) {
+pub async fn receive_file(file_path: &str, connection: TcpStream, keys: EncryptionKeys) {
     let (mut reader, _writer) = connection.into_split();
 
     let file = File::create(file_path)
@@ -15,6 +15,11 @@ pub async fn receive_file(file_path: &str, connection: TcpStream) {
     let mut file_writer = BufReader::new(file);
     let mut buffer = [0; constants::BUFFER_SIZE];
 
+    let key: [u8; 32] = keys.aes_key[0..32].try_into().unwrap();
+    let nonce: [u8; 24] = keys.aes_nonce[0..24].try_into().unwrap();
+
+    println!("Decrypting file!");
+
     loop {
         let bytes_read = match reader
             .read(&mut buffer)
@@ -22,12 +27,6 @@ pub async fn receive_file(file_path: &str, connection: TcpStream) {
                 Ok(v) => v,
                 Err(e) => {println!("Error trying to receive data: {:?}", e); return;}
             };
-
-        // let msg = str::from_utf8(&buffer[..bytes_read])
-        //     .map(|s| s.to_ascii_lowercase())
-        //     .unwrap();
-
-        // println!("Received: {msg}");
 
         if &buffer[..bytes_read] == b"TRANSFER_COMPLETE" {
             println!("File transfer complete.");
@@ -39,10 +38,20 @@ pub async fn receive_file(file_path: &str, connection: TcpStream) {
             break; // Connection closed
         }
 
+        let enc_data = &buffer[..bytes_read].to_vec();
+
+        let data = match decrypt_small_file(enc_data, &key, &nonce) {
+            Ok(v) => v,
+            Err(e) => {eprintln!("{:?}", e); return;}
+        };
+
         file_writer
             .get_mut()
-            .write_all(&buffer[..bytes_read])
+            .write_all(&data)
             .await
             .expect("Unable to write data to file.");
     }
+
+    println!("Finished decrypting file!");
+
 }

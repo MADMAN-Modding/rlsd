@@ -7,8 +7,7 @@ use base64::{engine::general_purpose, Engine};
 use serde_json::Value;
 
 use crate::{
-    constants, file_transfer::receive, json_handler::read_client_config_string,
-    socket_handling::command_type::Commands,
+    constants, encryption::EncryptionKeys, file_transfer::receive, json_handler::read_client_config_string, socket_handling::command_type::Commands
 };
 
 /// Sends data to the socket
@@ -47,7 +46,7 @@ pub async fn send(command: Commands, payload: Value) -> String {
         .collect::<String>()
 }
 
-pub async fn download_database(payload: Value) -> Result<(), anyhow::Error> {
+pub async fn download_database(payload: Value, keys: EncryptionKeys) -> Result<(), anyhow::Error> {
     let server_addr = read_client_config_string("serverAddr");
 
     let mut connection = connect(&server_addr).await.expect("Error connecting");
@@ -62,11 +61,7 @@ pub async fn download_database(payload: Value) -> Result<(), anyhow::Error> {
 
     connection.write_all(&mut buf).await.unwrap();
 
-    // let mut buf = [0u8; constants::BUFFER_SIZE];
-
-    // println!("{}", connection.read(&mut buf).await.unwrap());
-
-    receive::receive_file("test.sqlite", connection).await;
+    receive::receive_file("test.sqlite", connection, keys).await;
 
     Ok(())
 }

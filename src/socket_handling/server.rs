@@ -14,7 +14,7 @@ use tokio::time::sleep;
 use whoami::Arch;
 
 use crate::{
-    config::server::ServerConfig as ServerConfig, constants::{self, get_db_path, get_server_config_path}, file_transfer::send::send_file, json_handler::{self, write_server_config_all, ToDevice, ToServerConfig}, socket_handling::command_type::{CommandTraits, Commands}, stats_handling::{database, device_info::get_device_id, stats_getter}
+    config::server::ServerConfig as ServerConfig, constants::{self, get_db_path, get_server_config_path}, encryption::{rsa_decrypt, EncryptionKeys}, file_transfer::send::send_file, json_handler::{self, read_json_from_buf, write_server_config_all, ToDevice, ToServerConfig}, socket_handling::command_type::{CommandTraits, Commands}, stats_handling::{database, device_info::get_device_id, stats_getter}
 };
 
 #[derive(Clone)]
@@ -424,20 +424,34 @@ impl Server {
     async fn download_database(&mut self, stream: TcpStream, payload: Value) {
         let db_path = get_db_path();
 
-        let _uid = payload["deviceID"].to_string();
+        let uid = read_json_from_buf("deviceID", &payload);
 
-        // if !self.admin_check(&uid) {
-        //     println!("Failed admin check");
-        //     return;
-        // }
+        if !self.admin_check(&uid) {
+            return;
+        }
 
-        send_file(stream, &db_path).await;
+        let mut enc_data: Vec<u8> = vec![];
+
+        for byte in payload["encryptedAESKeys"].as_array().unwrap() {
+            enc_data.push(byte.as_u64().unwrap() as u8);
+        }
+
+        let aes_keys: Vec<Vec<u8>> = rsa_decrypt(&self.rsa_priv_key, enc_data);
+
+        let keys = EncryptionKeys {
+            aes_key: aes_keys[0].clone(),
+            aes_nonce: aes_keys[2].clone()
+        };
+
+        drop(aes_keys);
+
+        send_file(stream, &db_path, keys).await;
     }
 
     async fn request_rsa_key(&mut self, mut stream: TcpStream, payload: Value) {
         let mut rng = OsRng;
 
-        if self.admin_check(&json_handler::read_json_from_buf("deviceID", &payload)) {
+        if self.admin_check(&read_json_from_buf("deviceID", &payload)) {
             let rsa_priv_key = RsaPrivateKey::new(&mut rng, 2048).unwrap();
 
             let rsa_public_key = RsaPublicKey::from(&rsa_priv_key);

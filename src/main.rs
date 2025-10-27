@@ -133,7 +133,7 @@ async fn main() {
 
             let rsa_pub_key = RsaPublicKey::from_pkcs1_pem(&payload).unwrap();
 
-            let encrypted_aes_keys = encryption::rsa_encrypt_aes_keys(rsa_pub_key, keys.aes_key, keys.aes_nonce).expect("Error encrypting AES keys");   
+            let encrypted_aes_keys = encryption::rsa_encrypt_aes_keys(rsa_pub_key, &keys.aes_key, &keys.aes_nonce).expect("Error encrypting AES keys");   
             
             println!("{}", encrypted_aes_keys.len());
 
@@ -143,7 +143,7 @@ async fn main() {
                 
             });
 
-            client::download_database(payload).await.unwrap();
+            client::download_database(payload, keys).await.unwrap();
 
         }
 

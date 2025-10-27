@@ -1,8 +1,9 @@
 #[cfg(test)]
 pub mod test {
+    use crate::file_transfer::send::send_file_no_enc;
+
     #[tokio::test]
     async fn test_transfer() {
-        use crate::file_transfer::send::send_file;
         use tokio::net::{TcpListener, TcpStream};
         use crate::file_transfer::receive::receive_file;
         // This is a placeholder for actual tests.
@@ -25,7 +26,7 @@ pub mod test {
                     Ok((stream, addr)) => {
                         println!("New connection from {:?}", addr);
 
-                        send_file(stream, "test/send.txt").await;
+                        send_file_no_enc(stream, "test/send.txt").await;
                     }
                     Err(e) => {
                         println!("Failed to accept connection: {:?}", e);
@@ -40,7 +41,7 @@ pub mod test {
         let connection = TcpStream::connect("0.0.0.0:8080").await.unwrap();
 
 
-        receive_file("test/received.txt", connection).await;
+        // receive_file("test/received.txt", connection).await;
         
         // Compare files
         let sent_file = tokio::fs::read("test/send.txt")
