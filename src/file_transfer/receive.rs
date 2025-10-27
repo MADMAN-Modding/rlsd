@@ -18,7 +18,6 @@ pub async fn receive_file(file_path: &str, connection: TcpStream, keys: Encrypti
     let nonce: [u8; 24] = keys.aes_nonce[0..24].try_into().unwrap();
     drop(keys);
 
-    println!("Decrypting file!");
     let mut chunk_index = 0u64;
 
     loop {
@@ -52,6 +51,4 @@ pub async fn receive_file(file_path: &str, connection: TcpStream, keys: Encrypti
 
         chunk_index += 1;
     }
-
-    println!("Finished decrypting file!");
 }
