@@ -1,18 +1,25 @@
 #[cfg(test)]
 pub mod test {
-    use crate::file_transfer::send::send_file_no_enc;
+    use crate::encryption::EncryptionKeys;
 
     #[tokio::test]
     async fn test_transfer() {
         use tokio::net::{TcpListener, TcpStream};
-        use crate::file_transfer::receive::receive_file;
+        use crate::encryption::gen_keys;
+        use crate::file_transfer::{send::send_file, receive::receive_file};
         // This is a placeholder for actual tests.
         // In a real-world scenario, you would use a testing framework
         // and possibly mock the network interactions.
         println!("Testing file transfer...");
 
+
+        let keys = gen_keys().unwrap();
+
+        let key = keys.aes_key.clone();
+        let nonce = keys.aes_nonce.clone();
+        
         // Start server
-        tokio::spawn(async {
+        tokio::spawn(async move {
             let socket = TcpListener::bind("0.0.0.0:8080")
                 .await
                 .map_err(|e| {
@@ -26,7 +33,13 @@ pub mod test {
                     Ok((stream, addr)) => {
                         println!("New connection from {:?}", addr);
 
-                        send_file_no_enc(stream, "test/send.txt").await;
+
+                    let keys = EncryptionKeys {
+                        aes_key: key.clone(),
+                        aes_nonce: nonce.clone()
+                    };
+
+                        send_file(stream, "test/send.txt", keys).await;
                     }
                     Err(e) => {
                         println!("Failed to accept connection: {:?}", e);
@@ -41,7 +54,7 @@ pub mod test {
         let connection = TcpStream::connect("0.0.0.0:8080").await.unwrap();
 
 
-        // receive_file("test/received.txt", connection).await;
+        receive_file("test/received.txt", connection, keys).await;
         
         // Compare files
         let sent_file = tokio::fs::read("test/send.txt")

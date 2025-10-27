@@ -131,3 +131,10 @@ pub fn decrypt_small_file(
 
     Ok(decrypted_file)
 }
+
+pub fn derive_chunk_nonce(base_nonce: &[u8; 24], chunk_index: u64) -> [u8; 24] {
+    let mut new_nonce = *base_nonce;
+    // Overwrite the last 8 bytes with the little-endian chunk counter
+    new_nonce[16..24].copy_from_slice(&chunk_index.to_le_bytes());
+    new_nonce
+}
