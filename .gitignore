@@ -1,7 +1,6 @@
 /target
 Cargo.lock
 .vscode
-database.sqlite
 libs
 rlsd
-test.sqlite
+*.sqlite

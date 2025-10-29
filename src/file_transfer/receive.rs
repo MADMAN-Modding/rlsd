@@ -24,7 +24,7 @@ pub async fn receive_file(file_path: &str, connection: TcpStream, keys: Encrypti
         // read length prefix
         let mut len_buf = [0u8; 4];
         if let Err(_) = reader.read_exact(&mut len_buf).await {
-            println!("Connection closed by sender.");
+            println!("File Transfer Complete!");
             break;
         }
         let chunk_len = u32::from_le_bytes(len_buf) as usize;

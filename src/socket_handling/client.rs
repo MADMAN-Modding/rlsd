@@ -61,7 +61,9 @@ pub async fn download_database(payload: Value, keys: EncryptionKeys) -> Result<(
 
     connection.write_all(&mut buf).await.unwrap();
 
-    receive::receive_file("test.sqlite", connection, keys).await;
+
+    println!("Starting File Transfer!");
+    receive::receive_file("server_data.sqlite", connection, keys).await;
 
     Ok(())
 }

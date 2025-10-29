@@ -421,12 +421,13 @@ impl Server {
         }
     }
 
-    async fn download_database(&mut self, stream: TcpStream, payload: Value) {
+    async fn download_database(&mut self, mut stream: TcpStream, payload: Value) {
         let db_path = get_db_path();
 
         let uid = read_json_from_buf("deviceID", &payload);
 
         if !self.admin_check(&uid) {
+            stream.write_all(b"You aren't an admin.").await.unwrap();
             return;
         }
 

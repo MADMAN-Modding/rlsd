@@ -31,8 +31,6 @@ pub fn rsa_encrypt_aes_keys(
     key: &Vec<u8>,
     nonce: &Vec<u8>,
 ) -> Result<Vec<u8>, anyhow::Error> {
-    println!("Encrypting via RSA");
-
     let mut rng = OsRng;
 
     // Encrypt each piece separately
@@ -70,8 +68,6 @@ pub fn rsa_encrypt_aes_keys(
 }
 
 pub fn rsa_decrypt(priv_key: &RsaPrivateKey, enc_data: Vec<u8>) -> Vec<Vec<u8>> {
-    println!("Decrypting via RSA");
-
     let mut cursor = 0;
     let mut decrypted_chunks: Vec<Vec<u8>> = Vec::new();
 
@@ -93,12 +89,8 @@ pub fn rsa_decrypt(priv_key: &RsaPrivateKey, enc_data: Vec<u8>) -> Vec<Vec<u8>> 
             .decrypt(Pkcs1v15Encrypt, block)
             .expect("Failed to decrypt block");
 
-        println!("{}", dec.len());
-
         decrypted_chunks.push(dec);
     }
-
-    println!("Decrypted {} blocks:", decrypted_chunks.len());
     decrypted_chunks
 }
 
@@ -120,9 +112,7 @@ pub fn decrypt_small_file(
     enc_data: &Vec<u8>,
     key: &[u8; 32],
     nonce: &[u8; 24],
-) -> Result<Vec<u8>, anyhow::Error> {
-    println!("Decrypting small file");
-    
+) -> Result<Vec<u8>, anyhow::Error> {    
     let cipher = XChaCha20Poly1305::new(key.into());
 
     let decrypted_file = cipher
